@@ -205,8 +205,7 @@ void loop() {
   // handle OTA request
   ArduinoOTA.handle();
   if (OTAerreur) ESP.restart();
-
-  // I alive
+  // Is alive
   if ( millis() - previousMillis > 1000L) {
     previousMillis = millis();
     digitalWrite(EspLedBlue, !digitalRead(EspLedBlue));
