@@ -1,8 +1,8 @@
 #include <Arduino.h>
-// File FS
+// File FS (file system), added to pltformio.ini lib_deps
 #include <FS.h>
 #include <SPIFFS.h>
-// JSon install ArduinoJson by Benoit Blanchon and add it to pltformio.ini
+// JSon install ArduinoJson by Benoit Blanchon, added to pltformio.ini lib_deps
 #include <ArduinoJson.h>
 // OTA need WiFiUdp
 #include <WiFiUdp.h>
@@ -15,6 +15,8 @@
 #include <WiFiManager.h>
 // WebSocket
 #include <WebSocketsServer.h>
+// mDNS
+#include "ESPmDNS.h"
 
 #define EspLedBlue 2
 
@@ -26,33 +28,66 @@ String hostname;
 bool   OTAerreur = false;
 bool   raz       = false;
 
-// Config file
+// Config file Voici l’URL = http://#IP_JEEDOM#/jeedom/core/api/jeeApi.php?apikey=#APIKEY#&type=cmd&id=#ID#
+//Init JSON
+DynamicJsonBuffer jsonBuffer(500);
+JsonObject& JSONRoot   = jsonBuffer.createObject();
+JsonObject& JSONSystem = JSONRoot.createNestedObject("System");
+JsonObject& JSONJeedom = JSONRoot.createNestedObject("Jeedom");
 struct Config {
-  bool configOK;
+  char HostName[20];
+  char JeedomIp[20];
 };
-
 const char *filename = "/config/config.json";
 Config config;
 
-//Init JSON
-DynamicJsonBuffer jsonBuffer(500);
-JsonObject& JSONRoot = jsonBuffer.createObject();
-JsonObject& JSONSystem = JSONRoot.createNestedObject("system");
-JsonObject& JSONOptions = JSONRoot.createNestedObject("Options");
-JsonObject& JSONDht = JSONRoot.createNestedObject("dht");
-
-// service WEB
-WebServer server(80);         // serveur WEB sur port 80
+// services WEB
+WebServer server(80);
 WebSocketsServer webSocket = WebSocketsServer(81);
 
-// config file
-void setupConfiguration(const char *filename, Config &config) {
+String JsonConfig() {
+  String configjson;
+  // Use https://arduinojson.org/assistant/ to compute the capacity.
+  StaticJsonBuffer<1600> jsonBuffercfg;
+  // Parse the root object
+  JsonObject &rootcfg = jsonBuffercfg.createObject();
+  // Set the values
+  rootcfg["JeedomIp"] = config.JeedomIp;
+  // Transform to string
+  rootcfg.printTo(configjson);
+  return configjson;
+}
+
+// Read config file
+void loadConfiguration(const char *filename, Config &config) {
   // Open file for reading
   File file = SPIFFS.open(filename, "r");
+  if (!file)
+    Serial.println(" Config file is absent.");
+  size_t size = file.size();
+  if (size > 1024)
+    Serial.println(" Fichier config trop grand.");
+  // allocate buffer for loading config
+  std::unique_ptr<char[]> buf(new char[size]);
+  file.readBytes(buf.get(), size);
+  StaticJsonBuffer<1600> jsonBufferConfig;
+  JsonObject& rootcfg = jsonBufferConfig.parseObject(buf.get());
+  if (!rootcfg.success())
+    Serial.println(" Erreur lecture fichier config - Valeur par defaut -");
+  // Set config or defaults
+  strlcpy(config.HostName, rootcfg["HostName"] | "ESP32-Dudu",sizeof(config.HostName));
+  strlcpy(config.JeedomIp, rootcfg["JeedomIp"] | "", sizeof(config.JeedomIp));
+}
+
+// Save config file
+void saveConfiguration(const char *filename, const Config &config) {
+  File file = SPIFFS.open(filename, "w");
   if (!file) {
-    Serial.println(" Fichier config Jeedom absent -");
+    Serial.println("Can't write in Config file.");
     return;
   }
+  file.print(JsonConfig());
+  file.close();
 }
 
 //  configModeCallback callback when entering into AP mode
@@ -78,7 +113,7 @@ void setupWifiManager() {
   wifiManager.setAPCallback(configModeCallback);
   //Recupere les identifiants   ssid et Mot de passe dans l'eprom  et essayes de se connecter
   //Si pas de connexion possible , il demarre un nouveau point d'accés avec comme nom , celui definit dans la commande autoconnect ( ici : AutoconnectAP )
-  wifiManager.autoConnect("AutoConnectAP");
+  wifiManager.autoConnect(config.HostName);
   //Si rien indiqué le nom par defaut est  ESP + ChipID
   //wifiManager.autoConnect();
   // if(!wifiManager.autoConnect("WIFI-ESP32")) {
@@ -172,6 +207,20 @@ void setupWebServer(){
   server.onNotFound(handleNotFound);
   server.begin();
 }
+// Set up mDNS
+void setupmDNS() {
+  String  mdnsName = config.HostName;
+  // - first argument is the domain name, in this example   the fully-qualified domain name is "esp8266.local"
+  // - second argument is the IP address to advertise   we send our IP address on the WiFi network
+  if (!MDNS.begin(mdnsName.c_str())) {
+    Serial.println("Error setting up MDNS responder!");
+  }
+  Serial.println("mDNS responder started");
+  //mdns.register("fishtank", { description="Top Fishtank", service="http", port=80, location='Living Room' })
+  MDNS.addService("http",  "tcp", 80);
+  MDNS.addService("ws",    "tcp", 81);
+  MDNS.addService("esp32", "tcp", 8888); // Announce esp32 service port 8888 TCP
+}
 // Arduino core
 void setup() {
   Serial.begin(115200);
@@ -183,7 +232,7 @@ void setup() {
   pinMode(EspLedBlue, OUTPUT);
   delay(5000);
   Serial.println("Setup started.");
-  setupConfiguration(filename, config);
+  loadConfiguration(filename, config);
   setupWifiManager();
   // Wait for connection
   Serial.println("Wait wifi.");
@@ -195,6 +244,8 @@ void setup() {
   webSocket.onEvent(webSocketEvent);
   // Web serveur
   setupWebServer();
+  // nDNS
+  setupmDNS();
   Serial.println("Setup finished.");
 }
 
