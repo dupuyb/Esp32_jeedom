@@ -18,6 +18,15 @@
 // mDNS
 #include "ESPmDNS.h"
 
+// constant HTML Simple first Uploader if not defined in FS
+const char HTTP_HEADAL[] PROGMEM = "<!DOCTYPE html><html><head><title>HTML ESP32Dudu</title><meta content='width=device-width' name='viewport'></head>";
+const char HTTP_BODYUP[] PROGMEM = "<body><center><header><h1 style=\"background-color:lightblue\">HTML Uploader</h1></header><div><p style=\"text-align: center\">Use this page to upload new files to the ESP32.<br/>You can use compressed (.gz) files.</p><form method=\"post\" enctype=\"multipart/form-data\" style=\"margin: 0px auto 8px auto\" ><input type=\"file\" name=\"Choose file\" accept=\".gz,.html,.ico,.js,.css,.png,.gif,.jpg,.xml,.pdf,.htm\"><input class=\"button\" type=\"submit\" value=\"Upload\" name=\"submit\"></form></div></center></body></html>";
+const char HTTP_BODYID[] PROGMEM = "<script>function valid(param) { var r = confirm(\"Are you sure you want to execute this action?\");if (r == true) { window.location=param; } }</script><body><center><header><h1 style=\"background-color: lightblue;\">HTML Esp32 tools</h1></header><div><p style=\"text-align: center;\">Use this page to access the ESP32 embedded tools.<br />You are here because there is no index.html uploaded.</p><div style=\"text-align: left; position: absolute; left: 50%; transform: translate(-50%, 0%);\"><p style=\"line-height: .1;\"><em><strong>Configuration facilities</strong></em><br /><table width=\"400\" cellpadding=\"0\"><tr><td>- Show List of files in Embedded File System</td><td align=\"right\"><button  style=\"width: 90px;\" onClick=\"window.location='/ls';\">Ls</button></td></tr> <tr><td>- Show configuration file used at startup</td><td align=\"right\"><button style=\"width: 90px;\" onClick=\"window.location='/config.json';\">Config.json</button></td></tr><tr><td>- Show simple file uploader facility to E.F.S</td><td align=\"right\"><button style=\"width: 90px;\" onClick=\"window.location='/Upload';\">Uploader</button></td></tr></table>";
+const char HTTP_BODYI0[] PROGMEM = "<p style=\"line-height: .1;\"><em><strong>System facilities</strong></em></p><table width=\"400\" cellpadding=\"0\"><tbody><tr><tdstyle=\"line-height: 1.1; font-size: 10px;\">Several system commands are available:<br />- <b>Restart</b> launch an immediate reboot on the Esp32.<br />- <b>Save</b> Config. record the current configuration to E.F.S.*<br />- <b>Restore</b> remove files and set parameters as default values**.</td></tr></tbody></table><table width=\"400\" cellpadding=\"0\"><tbody><tr><td>- Select one command in the list :</td><td><form action=\"post\" method=\"post\"><select name=\"cmd\"><option value=\"none\"></option><option value=\"restart\">Restart</option><option value=\"save-config\">Save Config.*</option><option value=\"restore\">Restore**</option></select><button type=\"submit\">Valid</button></form></td></tr></tbody></table>";
+const char HTTP_BODYI1[] PROGMEM = "</p><p style=\"line-height: 1.0; font-size: 10px;\">* All parameters in config.json file will be affected. <br>**The login/password and all flag will be set to default. Embedded File System will be reformatted &amp; cleared.</p></div><div>&nbsp;</div></div></center></body></html>";
+
+
+
 #define EspLedBlue 2
 
 //Init JSON
@@ -25,7 +34,8 @@ DynamicJsonBuffer jsonBuffer(500);
 JsonObject& JSONRoot   = jsonBuffer.createObject();
 JsonObject& JSONSystem = JSONRoot.createNestedObject("System");
 JsonObject& JSONJeedom = JSONRoot.createNestedObject("Jeedom");
-struct Config {            //
+// Default value in loadConfiguration function
+struct Config {            // First connexion LAN:esp32dudu IPAddress(192,168,0,1)
   char HostName[20];       // Default esp32dudu
   byte MacAddress[6];      // Default 0x30,0xAE,0xA4,0x90,0xFD,0xC8
   bool ResetWifi;          // Default false WiFimanager reconnect with last data
@@ -33,17 +43,15 @@ struct Config {            //
   char OTAPassword[20];    // Default empty
   char UploadName[20];     // Default login admin
   char UploadPassword[20]; // Default password admin
-  bool UploadLocal;        // True if simpleUpload must be called in case of not Upload.html
-  char JeedomIp[20];
+  bool UseToolsLocal;      // True if simpleUpload must be called in case of not Upload.html
 };
 // variables Global
-long previousMillis = 0;
-#define  BUF_SIZE  60       // Taille max des notification ( nb de caractéres max )
-char   message[BUF_SIZE];   // Message global
-bool   OTAerreur = false;   // Error OTA
-const char *filename = "/config.json";
-Config config;
-File fsUploadFile;          // a File variable to temporarily store the received file
+const char *filename = "/config.json"; // file configuration
+long previousMillis = 0;       // Use in loop
+bool RebootAsap     = false;   // Error OTA
+bool RestoreAsap    = false;   // Reset to factory settings
+Config config;                 // Struct Config
+File fsUploadFile;             // File variable to temporarily store the received file
 
 // services WEB
 WebServer server(80);
@@ -63,27 +71,38 @@ String JsonConfig() {
   rootcfg["OTAPassword"]    = config.OTAPassword;
   rootcfg["UploadName"]     = config.UploadName;
   rootcfg["UploadPassword"] = config.UploadPassword;
-  rootcfg["UploadLocal"]    = config.UploadLocal;
-  rootcfg["JeedomIp"]       = config.JeedomIp;
+  rootcfg["UseToolsLocal"]  = config.UseToolsLocal;
   // Transform to string
   rootcfg.printTo(configjson);
   return configjson;
 }
+String formatBytes(size_t bytes) { // convert sizes in bytes to KB and MB
+  if (bytes < 1024) {
+    return String(bytes) + "B";
+  } else if (bytes < (1024 * 1024)) {
+    return String(bytes / 1024.0) + "KB";
+  } else if (bytes < (1024 * 1024 * 1024)) {
+    return String(bytes / 1024.0 / 1024.0) + "MB";
+  }
+  return String(bytes) + "B";
+}
 //  Directory list
 void listDir(String& ret, fs::FS &fs, const char * dirname, uint8_t levels) {
-  ret += "Listing directory: ";
+  ret += F("Listing directory: ");
   ret += dirname; ret += "\n";
   File root = fs.open(dirname);
-  if (!root) { ret += "Failed to open directory\n";  return;  }
-  if (!root.isDirectory()) { ret += "Not a directory\n"; return; }
+  if (!root) { ret += F("Failed to open directory\n");  return;  }
+  if (!root.isDirectory()) { ret += F("Not a directory\n"); return; }
   File file = root.openNextFile();
   while (file) {
     if (file.isDirectory()) {
-      ret += "  DIR : "; ret += file.name(); ret += "\n";
+      ret += F("  DIR : "); ret += file.name(); ret += "\n";
       if (levels)  listDir(ret, fs, file.name(), levels - 1);
     } else {
-      ret += ("  FILE: "); ret += (file.name());
-      ret += ("  SIZE: "); ret += (file.size()); ret += "\n";
+      ret += F("  FILE: "); ret += (file.name());  // SPIFFS_OBJ_NAME_LEN=32
+      for (uint8_t l=strlen(file.name()); l<32; l+=8)
+        ret += "\t";
+      ret += F("  SIZE: "); ret += (formatBytes(file.size())); ret += "\n";
     }
     file = root.openNextFile();
   }
@@ -108,18 +127,16 @@ String getContentType(String filename) {
 // Save config file
 String saveConfiguration(const char *filename, const Config &config) {
   File file = SPIFFS.open(filename, "w");
-  if (!file) {
-  //  Serial.println("Can't write in Config file.");
-    return "Can't write in Config file.";
-  }
+  if (!file)
+    return F("Can't write in Config file.");
   file.print(JsonConfig());
   file.close();
-  return "Config file was been saved.";
+  return F("Config file has been saved.");
 }
 // Start SPIFFS & Read config file
 void startSPIFFS() {
   if (SPIFFS.begin()==false){
-    Serial.println("SPIFFS was not formatted.");
+    Serial.println(F("SPIFFS was not formatted."));
     SPIFFS.format();
     SPIFFS.begin();
   }
@@ -131,10 +148,10 @@ void loadConfiguration(const char *filename, Config &config) {
   // Open file for reading configuration
   File file = SPIFFS.open(filename, "r");
   if (!file)
-    Serial.println(" Config file is absent.");
+    Serial.println(F(" Config file is absent."));
   size_t size = file.size();
   if (size > 1024)
-    Serial.println(" Fichier config trop grand.");
+    Serial.println(F(" Fichier config trop grand."));
   // allocate buffer for loading config
   std::unique_ptr<char[]> buf(new char[size]);
   file.readBytes(buf.get(), size);
@@ -151,17 +168,17 @@ void loadConfiguration(const char *filename, Config &config) {
   strlcpy(config.OTAPassword, rootcfg["OTAPassword"] | "empty",sizeof(config.OTAPassword));
   strlcpy(config.UploadName, rootcfg["UploadName"] | "admin",sizeof(config.UploadName));
   strlcpy(config.UploadPassword, rootcfg["UploadPassword"] | "admin",sizeof(config.UploadPassword));
-  config.UploadLocal = rootcfg["UploadLocal"] | true;
-  strlcpy(config.JeedomIp, rootcfg["JeedomIp"] | "", sizeof(config.JeedomIp));
+  config.UseToolsLocal = rootcfg["UseToolsLocal"] | true;
   if (!rootcfg.success()) {
-    Serial.println("Erreur lecture fichier config.");
-    Serial.println(saveConfiguration(filename, config));
+    Serial.println(F("Erreur lecture fichier config."));
+    String ret = saveConfiguration(filename, config);
+    Serial.println(ret);
   }
 }
 
 //  configModeCallback callback when entering into AP mode
 void configModeCallback (WiFiManager *myWiFiManager) {
-  Serial.println("Choisir AP..");
+  Serial.println(F("Choisir AP.."));
   delay(3000);
   Serial.println(WiFi.softAPIP().toString());
   delay(3000);
@@ -175,7 +192,7 @@ void configModeCallback (WiFiManager *myWiFiManager) {
 void startWifiManager() {
   WiFiManager wifiManager;
   esp_base_mac_addr_set(config.MacAddress); // Wifi_STA=mac  wifi_AP=mac+1  BT=mac+2
-  //wifiManager.setAPStaticIPConfig(IPAddress(10,0,1,1), IPAddress(10,0,1,1), IPAddress(255,255,255,0));
+  // wifiManager.setAPStaticIPConfig(IPAddress(192,168,0,1), IPAddress(192,168,1,1), IPAddress(255,255,255,0));
   //Forcer à effacer les donnees WIFI dans l'eprom , permet de changer d'AP à chaque demmarrage ou effacer les infos d'une AP dans la memoire ( a valider , lors du premier lancement  )
   if (config.ResetWifi) wifiManager.resetSettings();
   //set callback that gets called when connecting to previous WiFi fails, and enters Access Point mode
@@ -184,7 +201,7 @@ void startWifiManager() {
   //Si pas de connexion possible , il demarre un nouveau point d'accés avec comme nom , celui definit dans la commande autoconnect ( ici : AutoconnectAP )
   wifiManager.autoConnect(config.HostName);
   // Wait for connection
-  Serial.println("Wait wifi.");
+  Serial.println(F("Wait wifi."));
   while (WiFi.status() != WL_CONNECTED) {
     delay(500); Serial.print(".");
   }
@@ -208,16 +225,17 @@ void startOTA(){
     Serial.println("Start updating:" + type);
   });
   ArduinoOTA.onEnd([]() {
-    Serial.println("Reboot ...");
+    Serial.println(F("Reboot ..."));
     delay(500);
   });
   ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-    sprintf(message,"Upload  %u%%", (progress / (total / 100)));
-    Serial.println(message);
+    char msg[20];
+    sprintf(msg,"Upload  %u%%", (progress / (total / 100)));
+    Serial.println(msg);
   });
   ArduinoOTA.onError([](ota_error_t error) {
     delay(500);
-    OTAerreur=true;
+    RebootAsap=true;
     Serial.printf("Error[%u]: ", error);
   });
   ArduinoOTA.begin();
@@ -250,6 +268,18 @@ void startWebSocket() {
   webSocket.begin();
   webSocket.onEvent(webSocketEvent);
 }
+String simpleUpload(){
+  String message = FPSTR(HTTP_HEADAL);
+  message += FPSTR(HTTP_BODYUP);
+  return message;
+}
+String simpleIndex(){
+  String message = FPSTR(HTTP_HEADAL);
+  message += FPSTR(HTTP_BODYID);
+  message += FPSTR(HTTP_BODYI0);
+  message += FPSTR(HTTP_BODYI1);
+  return message;
+}
 // Handle Web server
 bool handleFileRead(String path) {                         // send the right file to the client (if it exists)
   Serial.println("handleFileRead: " + path);
@@ -262,10 +292,21 @@ bool handleFileRead(String path) {                         // send the right fil
     File file = SPIFFS.open(path, "r");                    // Open the file
     server.streamFile(file, contentType);                  // Send it to the client
     file.close();                                          // Close the file again
-    Serial.println(String("\tSent file: ") + path);
+    Serial.println("\tSent file: " + path);
     return true;
+  } else {
+    if (path.endsWith("/index.html")){                     // Default index.html page
+      if (config.UseToolsLocal) {
+        if (!server.authenticate(config.UploadName, config.UploadPassword)) {
+           server.requestAuthentication();
+           return true;
+        }
+        server.send(200, "text/html", simpleIndex() );     // If not upload.html in FS send light
+        return true;
+      }
+    }
   }
-  Serial.println(String("\tFile Not Found: ") + path);     // If the file doesn't exist, return false
+  Serial.println("\tFile Not Found: " + path);             // If the file doesn't exist, return false
   return false;
 }
 
@@ -280,7 +321,8 @@ void handleFileUpload(){                                // upload a new file to 
       if(SPIFFS.exists(pathWithGz))                      // version of that file must be deleted (if it exists)
          SPIFFS.remove(pathWithGz);
     }
-    Serial.print("handleFileUpload Name: "); Serial.println(path);
+    Serial.print(F("handleFileUpload Name: "));
+    Serial.println(path);
     fsUploadFile = SPIFFS.open(path, "w");                // Open the file for writing in SPIFFS (create if it doesn't exist)
     path = String();
   } else if(upload.status == UPLOAD_FILE_WRITE){
@@ -289,7 +331,8 @@ void handleFileUpload(){                                // upload a new file to 
   } else if(upload.status == UPLOAD_FILE_END){
     if(fsUploadFile) {                                    // If the file was successfully created
       fsUploadFile.close();                               // Close the file again
-      Serial.print("handleFileUpload Size: "); Serial.println(upload.totalSize);
+      Serial.print(F("handleFileUpload Size: "));
+      Serial.println(upload.totalSize);
       server.sendHeader("Location","/success.html");      // Redirect the client to the success page
       server.send(303);
     } else {
@@ -310,46 +353,48 @@ String textNotFound(){
     message += " " + server.argName(i) + ": " + server.arg(i) + "\n";
   return message;
 }
+void handlePost() {
+  for (uint8_t i=0; i<server.args(); i++) {
+    if (server.argName(i).equals("cmd")) {
+      if (!server.authenticate(config.UploadName, config.UploadPassword))
+        return server.requestAuthentication();
+      if (server.arg(i).equals("save-config") ) saveConfiguration(filename, config);
+      if (server.arg(i).equals("restart") ) RebootAsap = true;
+      if (server.arg(i).equals("restore") ) RestoreAsap = true;
+    }
+  }
+  server.sendHeader("Location","/");      // Redirect the client to the index page
+  server.send(303);
+}
 void handleNotFound(){ // if the requested file or page doesn't exist, return a 404 not found error
   if(!handleFileRead(server.uri())){          // check if the file exists in the flash memory (SPIFFS), if so, send it
     server.send(404, "text/plain", textNotFound());
   }
 }
-String simpleUpload(){
-  String message = "<!DOCTYPE html><html><head>";
-  message +="<title>HTML Uploader</title>";
-  message +="<meta content='width=device-width' name='viewport'>";
-  message +="</head><body><center><header><h1>HTML Uploader</h1></header>";
-  message +="<div><p style=\"text-align: center\">Use this page to upload new files to the ESP32.<br/>You can use compressed (.gz) files.</p>";
-  message +="<form method=\"post\" enctype=\"multipart/form-data\" style=\"margin: 0px auto 8px auto\" >";
-  message +="<input type=\"file\" name=\"Choose file\" accept=\".gz,.html,.ico,.js,.css,.png,.gif,.jpg,.xml,.pdf,.htm\">";
-  message +="<input class=\"button\" type=\"submit\" value=\"Upload\" name=\"submit\">";
-  message +="</form></div></center></body></html>";
-  return message;
-}
 // Start web server
 void startWebServer(){
-  server.on("/edit.html",  HTTP_POST, []() {  // If a POST request is sent to the /edit.html address,
-     server.send(200, "text/plain", "");
-  }, handleFileUpload);                       // go to 'handleFileUpload'
+  // POST
+  server.on("/post",  HTTP_POST, []() {  // If a POST request is sent to the /edit.html address,
+    handlePost();
+  });
+ // Test
   server.on("/inline", [](){
     server.send(200, "text/plain", "this works as well"); // Just for some test
   });
+  // Simple command wihout pwd
   server.on("/ls", [](){                      // Get list of file in FS
     String ls;
     listDir(ls, SPIFFS, "/", 0);
     server.send(200, "text/plain", ls);
   });
-  server.on("/saveconfig", [](){               // Force saveconfig
-    server.send(200, "text/plain", saveConfiguration(filename, config));
-  });
+
   // server upload file
   server.on("/Upload", HTTP_GET, []() {        // Upload
     if (!server.authenticate(config.UploadName, config.UploadPassword)) {
       return server.requestAuthentication();
     }
     if (!handleFileRead("/upload.html")) {    // upload.html exist on FS
-      if (config.UploadLocal) server.send(200, "text/html", simpleUpload() ); // If not upload.html in FS send light
+      if (config.UseToolsLocal) server.send(200, "text/html", simpleUpload() ); // If not upload.html in FS send light
       else server.send(404, "text/plain", "FileNotFound");
     }
   });
@@ -369,9 +414,8 @@ void startMDNS() {
   // - first argument is the domain name, in this example   the fully-qualified domain name is "esp8266.local"
   // - second argument is the IP address to advertise   we send our IP address on the WiFi network
   if (!MDNS.begin(config.HostName))
-    Serial.println("Error setting up MDNS responder!");
-  sprintf(message, "mDNS responder started: %s", config.HostName);
-  Serial.println(message);
+    Serial.println(F("Error setting up MDNS responder!"));
+  Serial.print( F("mDNS responder started: ")); Serial.println(config.HostName);
   MDNS.addService("http",  "tcp", 80);
   MDNS.addService("ws",    "tcp", 81);
   MDNS.addService("esp32", "tcp", 8888); // Announce esp32 service port 8888 TCP
@@ -383,7 +427,7 @@ void setup() {
   pinMode(EspLedBlue, OUTPUT);     // Led is BLUE at statup
   digitalWrite(EspLedBlue, HIGH);  // After 5 seconds blinking indicate WiFI ids OK
   delay(5000);                     // If stay BLUE after 5 sec mode AccessPoint
-  Serial.println("Setup started.");
+  Serial.println(F("Setup started."));
   startSPIFFS();                   // Start FS (list all contents)
   loadConfiguration(filename, config); // Read config file
   startWifiManager();              // Start a Wi-Fi access point, and try to connect
@@ -391,14 +435,20 @@ void setup() {
   startWebSocket();                // Start a WebSocket server
   startWebServer();                // Start a HTTP server with a file read handler and an upload handler
   startMDNS();                     // Start the mDNS responder
-  Serial.print("Setup finished IP:");Serial.println(WiFi.localIP());;
+  Serial.print(F("Setup finished IP:"));Serial.println(WiFi.localIP());;
 }
 // Main loop -----------------------------------------------------------------
 void loop() {
   server.handleClient();         // constantly check for events
   webSocket.loop();              // constantly check for websocket events
   ArduinoOTA.handle();           // listen for OTA events
-  if (OTAerreur) ESP.restart();  // Restart in case of error
+  if (RebootAsap) ESP.restart(); // Restart in case of error
+  if (RestoreAsap) {             // Reset to factory settings
+    SPIFFS.format();
+    WiFiManager wifiManager;
+    wifiManager.resetSettings(); // BUG the stored ssid saty !!
+    ESP.restart();
+  }
   // Is alive
   if ( millis() - previousMillis > 1000L) {
     previousMillis = millis();
