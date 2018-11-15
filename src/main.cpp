@@ -22,10 +22,8 @@
 const char HTTP_HEADAL[] PROGMEM = "<!DOCTYPE html><html><head><title>HTML ESP32Dudu</title><meta content='width=device-width' name='viewport'></head>";
 const char HTTP_BODYUP[] PROGMEM = "<body><center><header><h1 style=\"background-color:lightblue\">HTML Uploader</h1></header><div><p style=\"text-align: center\">Use this page to upload new files to the ESP32.<br/>You can use compressed (.gz) files.</p><form method=\"post\" enctype=\"multipart/form-data\" style=\"margin: 0px auto 8px auto\" ><input type=\"file\" name=\"Choose file\" accept=\".gz,.html,.ico,.js,.css,.png,.gif,.jpg,.xml,.pdf,.htm\"><input class=\"button\" type=\"submit\" value=\"Upload\" name=\"submit\"></form></div></center></body></html>";
 const char HTTP_BODYID[] PROGMEM = "<script>function valid(param) { var r = confirm(\"Are you sure you want to execute this action?\");if (r == true) { window.location=param; } }</script><body><center><header><h1 style=\"background-color: lightblue;\">HTML Esp32 tools</h1></header><div><p style=\"text-align: center;\">Use this page to access the ESP32 embedded tools.<br />You are here because there is no index.html uploaded.</p><div style=\"text-align: left; position: absolute; left: 50%; transform: translate(-50%, 0%);\"><p style=\"line-height: .1;\"><em><strong>Configuration facilities</strong></em><br /><table width=\"400\" cellpadding=\"0\"><tr><td>- Show List of files in Embedded File System</td><td align=\"right\"><button  style=\"width: 90px;\" onClick=\"window.location='/ls';\">Ls</button></td></tr> <tr><td>- Show configuration file used at startup</td><td align=\"right\"><button style=\"width: 90px;\" onClick=\"window.location='/config.json';\">Config.json</button></td></tr><tr><td>- Show simple file uploader facility to E.F.S</td><td align=\"right\"><button style=\"width: 90px;\" onClick=\"window.location='/Upload';\">Uploader</button></td></tr></table>";
-const char HTTP_BODYI0[] PROGMEM = "<p style=\"line-height: .1;\"><em><strong>System facilities</strong></em></p><table width=\"400\" cellpadding=\"0\"><tbody><tr><tdstyle=\"line-height: 1.1; font-size: 10px;\">Several system commands are available:<br />- <b>Restart</b> launch an immediate reboot on the Esp32.<br />- <b>Save</b> Config. record the current configuration to E.F.S.*<br />- <b>Restore</b> remove files and set parameters as default values**.</td></tr></tbody></table><table width=\"400\" cellpadding=\"0\"><tbody><tr><td>- Select one command in the list :</td><td><form action=\"post\" method=\"post\"><select name=\"cmd\"><option value=\"none\"></option><option value=\"restart\">Restart</option><option value=\"save-config\">Save Config.*</option><option value=\"restore\">Restore**</option></select><button type=\"submit\">Valid</button></form></td></tr></tbody></table>";
+const char HTTP_BODYI0[] PROGMEM = "<p style=\"line-height: .1;\"><em><strong>System facilities</strong></em></p><table width=\"400\" cellpadding=\"0\"><tbody><tr><tdstyle=\"line-height: 1.1; font-size: 10px;\">Several system commands are available:<br />- <b>Restart</b> launch an immediate reboot on the Esp32.<br />- <b>Save Config.</b> record the current configuration to E.F.S.*<br />- <b>Restore</b> remove files and set parameters as default values**.</td></tr></tbody></table><table width=\"400\" cellpadding=\"0\"><tbody><tr><td>- Select one command in the list :</td><td><form action=\"post\" method=\"post\"><select name=\"cmd\"><option value=\"none\"></option><option value=\"restart\">Restart</option><option value=\"save-config\">Save Config.*</option><option value=\"restore\">Restore**</option></select><button type=\"submit\">Valid</button></form></td></tr></tbody></table>";
 const char HTTP_BODYI1[] PROGMEM = "</p><p style=\"line-height: 1.0; font-size: 10px;\">* All parameters in config.json file will be affected. <br>**The login/password and all flag will be set to default. Embedded File System will be reformatted &amp; cleared.</p></div><div>&nbsp;</div></div></center></body></html>";
-
-
 
 #define EspLedBlue 2
 
@@ -34,6 +32,7 @@ DynamicJsonBuffer jsonBuffer(500);
 JsonObject& JSONRoot   = jsonBuffer.createObject();
 JsonObject& JSONSystem = JSONRoot.createNestedObject("System");
 JsonObject& JSONJeedom = JSONRoot.createNestedObject("Jeedom");
+
 // Default value in loadConfiguration function
 struct Config {            // First connexion LAN:esp32dudu IPAddress(192,168,0,1)
   char HostName[20];       // Default esp32dudu
@@ -45,6 +44,7 @@ struct Config {            // First connexion LAN:esp32dudu IPAddress(192,168,0,
   char UploadPassword[20]; // Default password admin
   bool UseToolsLocal;      // True if simpleUpload must be called in case of not Upload.html
 };
+
 // variables Global
 const char *filename = "/config.json"; // file configuration
 long previousMillis = 0;       // Use in loop
@@ -76,6 +76,7 @@ String JsonConfig() {
   rootcfg.printTo(configjson);
   return configjson;
 }
+
 String formatBytes(size_t bytes) { // convert sizes in bytes to KB and MB
   if (bytes < 1024) {
     return String(bytes) + "B";
@@ -86,6 +87,7 @@ String formatBytes(size_t bytes) { // convert sizes in bytes to KB and MB
   }
   return String(bytes) + "B";
 }
+
 //  Directory list
 void listDir(String& ret, fs::FS &fs, const char * dirname, uint8_t levels) {
   ret += F("Listing directory: ");
@@ -108,6 +110,7 @@ void listDir(String& ret, fs::FS &fs, const char * dirname, uint8_t levels) {
   }
   return;
 }
+
 String getContentType(String filename) {
   if (server.hasArg("download"))        { return "application/octet-stream";
   } else if (filename.endsWith(".htm")) { return "text/html";
@@ -124,6 +127,7 @@ String getContentType(String filename) {
   } else if (filename.endsWith(".gz"))  { return "application/x-gzip"; }
   return "text/plain";
 }
+
 // Save config file
 String saveConfiguration(const char *filename, const Config &config) {
   File file = SPIFFS.open(filename, "w");
@@ -133,6 +137,7 @@ String saveConfiguration(const char *filename, const Config &config) {
   file.close();
   return F("Config file has been saved.");
 }
+
 // Start SPIFFS & Read config file
 void startSPIFFS() {
   if (SPIFFS.begin()==false){
@@ -144,6 +149,7 @@ void startSPIFFS() {
   listDir(ls, SPIFFS, "/", 0);
   Serial.print(ls);
 }
+
 void loadConfiguration(const char *filename, Config &config) {
   // Open file for reading configuration
   File file = SPIFFS.open(filename, "r");
@@ -263,16 +269,19 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t lenght
     break;
   }
 }
+
 // Start webSocket
 void startWebSocket() {
   webSocket.begin();
   webSocket.onEvent(webSocketEvent);
 }
+
 String simpleUpload(){
   String message = FPSTR(HTTP_HEADAL);
   message += FPSTR(HTTP_BODYUP);
   return message;
 }
+
 String simpleIndex(){
   String message = FPSTR(HTTP_HEADAL);
   message += FPSTR(HTTP_BODYID);
@@ -280,6 +289,7 @@ String simpleIndex(){
   message += FPSTR(HTTP_BODYI1);
   return message;
 }
+
 // Handle Web server
 bool handleFileRead(String path) {                         // send the right file to the client (if it exists)
   Serial.println("handleFileRead: " + path);
@@ -340,6 +350,7 @@ void handleFileUpload(){                                // upload a new file to 
     }
   }
 }
+
 String textNotFound(){
   String message = "404: File Not Found\n\n";
   message += "URI: ";
@@ -353,6 +364,7 @@ String textNotFound(){
     message += " " + server.argName(i) + ": " + server.arg(i) + "\n";
   return message;
 }
+
 void handlePost() {
   for (uint8_t i=0; i<server.args(); i++) {
     if (server.argName(i).equals("cmd")) {
@@ -371,6 +383,7 @@ void handleNotFound(){ // if the requested file or page doesn't exist, return a 
     server.send(404, "text/plain", textNotFound());
   }
 }
+
 // Start web server
 void startWebServer(){
   // POST
@@ -406,9 +419,10 @@ void startWebServer(){
       server.send(404, "text/plain", "FileNotFound");
     }
   });
-  server.onNotFound(handleNotFound);         // Not found page
+  server.onNotFound(handleNotFound);           // Not found page
   server.begin();
 }
+
 // Start MDNS
 void startMDNS() {
   // - first argument is the domain name, in this example   the fully-qualified domain name is "esp8266.local"
@@ -420,13 +434,13 @@ void startMDNS() {
   MDNS.addService("ws",    "tcp", 81);
   MDNS.addService("esp32", "tcp", 8888); // Announce esp32 service port 8888 TCP
 }
+
 // Arduino core -------------------------------------------------------------
 void setup() {
   Serial.begin(115200);
   // Set pin mode
   pinMode(EspLedBlue, OUTPUT);     // Led is BLUE at statup
   digitalWrite(EspLedBlue, HIGH);  // After 5 seconds blinking indicate WiFI ids OK
-  delay(5000);                     // If stay BLUE after 5 sec mode AccessPoint
   Serial.println(F("Setup started."));
   startSPIFFS();                   // Start FS (list all contents)
   loadConfiguration(filename, config); // Read config file
@@ -437,6 +451,7 @@ void setup() {
   startMDNS();                     // Start the mDNS responder
   Serial.print(F("Setup finished IP:"));Serial.println(WiFi.localIP());;
 }
+
 // Main loop -----------------------------------------------------------------
 void loop() {
   server.handleClient();         // constantly check for events
