@@ -1,10 +1,10 @@
 #ifndef Frame_h
 #define Frame_h
 
-// File FS (file system), added to pltformio.ini lib_deps
+// File FS SPI Flash File System
 #include <FS.h>
 #include <SPIFFS.h>
-// JSon install ArduinoJson by Benoit Blanchon, added to pltformio.ini lib_deps
+// JSon install ArduinoJson by Benoit Blanchon
 #include <ArduinoJson.h>
 // OTA need WiFiUdp
 #include <WiFiUdp.h>
@@ -30,15 +30,19 @@
   #define DBXLN(...)
 #endif
 
+const char  FrameVersion[] PROGMEM = "-=< Ver:0.1.2 >=-";
+
 // constant HTML Uploader if not defined in FS
 const char HTTP_HEADAL[] PROGMEM = "<!DOCTYPE html><html><head><title>HTML ESP32Dudu</title><meta content='width=device-width' name='viewport'></head>\n";
-const char HTTP_BODYUP[] PROGMEM = "<body><center><header><h1 style='background-color:lightblue'>HTML Uploader</h1></header><div><p style='text-align: center'>\nUse this page to upload new files to the ESP32.<br/>You can use compressed (.gz) files.</p>\n<form method='post' enctype='multipart/form-data' style='margin: 0px auto 8px auto' >\n<input type='file' name='Choose file' accept='.gz,.html,.ico,.js,.css,.png,.gif,.jpg,.xml,.pdf,.htm'><input class='button' type='submit' value='Upload' name='submit'></form>\n</div></center></body></html>";
+const char HTTP_BODYUP[] PROGMEM = "<body><center><header><h1 style='background-color:lightblue'>HTML Uploader</h1></header><div><p style='text-align: center'>\nUse this page to upload new files to the ESP32.<br/>You can use compressed (.gz) files.</p>\n<form method='post' enctype='multipart/form-data' style='margin: 0px auto 8px auto' >\n<input type='file' name='Choose file' accept='.gz,.html,.ico,.js,.css,.png,.gif,.jpg,.xml,.pdf,.htm'><input class='button' type='submit' value='Upload' name='submit'></form>\n</div><a class='button' href='/''>Back</a></center></body></html>";
+
 // constant HTML Tools if not defined in FS // not use <script>function valid(param) { var r = confirm(\"Are you sure you want to execute this action?\");if (r == true) { window.location=param; } }</script>
-const char HTTP_BODYID[] PROGMEM = "<body><center><header><h1 style=\"background-color: lightblue;\">HTML Esp32 Tools</h1></header>\n<div><p style=\"text-align: center;\">Use this page to access the ESP32 embedded tools.<br />You are here because there is no index.html uploaded.</p><div style=\"text-align: left; position: absolute; left: 50%; transform: translate(-50%, 0%);\"><p style=\"line-height: .1;\"><em><strong>Configuration facilities</strong></em><br /><table width=\"400\" cellpadding=\"0\"><tr><td>- Show files explorer in Embedded File System</td><td align=\"right\"><button  style=\"width: 90px;\" onClick=\"window.location='/explorer';\">Explorer</button></td></tr> <tr><td>- Show configuration file used at startup</td><td align=\"right\"><button style=\"width: 90px;\" onClick=\"window.location='/config.json';\">Config.json</button></td></tr><tr><td>- Upload files facility to the E.F.S.</td><td align=\"right\"><button style=\"width: 90px;\" onClick=\"window.location='/Upload';\">Uploader</button></td></tr><tr><td>- Update firmware O.T.A. to the EPS32</td><td align=\"right\"><button style=\"width: 90px;\" onClick=\"window.location='/update';\">Update</button></td></tr></table>";
-const char HTTP_BODYI0[] PROGMEM = "<p style=\"line-height: .1;\"><em><strong>System facilities</strong></em></p><table width=\"400\" cellpadding=\"0\"><tbody><tr><tdstyle=\"line-height: 1.1; font-size: 10px;\">Several system commands are available:<br />- <b>Restart</b> launch an immediate reboot on the Esp32.<br />- <b>Save Config.</b> record the current configuration to E.F.S.*<br />- <b>Restore</b> default parameters and remove files to E.F.S**</td></tr></tbody></table><table width=\"400\" cellpadding=\"0\"><tbody><tr><td>- Select one command in the list :</td><td><form action=\"post\" method=\"post\"><select name=\"cmd\"><option value=\"none\"></option><option value=\"restart\">Restart</option><option value=\"save-config\">Save Config.*</option><option value=\"restore\">Restore**</option></select><button type=\"submit\">Valid</button></form></td></tr></tbody></table>";
+const char HTTP_BODYID[] PROGMEM = "<body><center><header><h1 style=\"background-color: lightblue;\">HTML Esp32 Tools</h1></header>\n<div><p style=\"text-align: center;\">Use this page to access the ESP32 embedded tools.<br />You are here because there is no index.html uploaded.</p><div style=\"text-align: left; position: absolute; left: 50%; transform: translate(-50%, 0%);\"><p style=\"line-height: .1;\"><em><strong>Configuration facilities</strong></em><br /><table width=\"500\" cellpadding=\"0\"><tr><td>- Files explorer of SPI Flash File System</td><td align=\"right\"><button  style=\"width: 60%;\" onClick=\"window.location='/explorer';\">Explorer</button><button  style=\"width: 28%;\" onClick=\"window.location='/ls';\">Ls</button></td></tr> <tr><td>- Show configuration file used at startup</td><td align=\"right\"><button style=\"width: 90%;\" onClick=\"window.location='/config.json';\">Config.json</button></td></tr><tr><td>- Upload files to SPI Flash File System</td><td align=\"right\"><button style=\"width: 90%;\" onClick=\"window.location='/upload';\">Uploader</button></td></tr><tr><td>- Update firmware O.T.A. to the EPS32</td><td align=\"right\"><button style=\"width: 90%;\" onClick=\"window.location='/update';\">Update</button></td></tr></table>";
+const char HTTP_BODYI0[] PROGMEM = "<p style=\"line-height: .1;\"><em><strong>System facilities</strong></em></p><table width=\"400\" cellpadding=\"0\"><tbody><tr><tdstyle=\"line-height: 1.1; font-size: 10px;\">Several system commands are available:<br />- <b>Restart</b> launch an immediate reboot on the Esp32.<br />- <b>Save Config.</b> record the current configuration to E.F.S.*<br />- <b>Restore</b> default parameters and remove files to E.F.S**</td></tr></tbody></table><table width=\"500\" cellpadding=\"0\"><tbody><tr><td>- Select one command in the list :</td><td><form action=\"post\" method=\"post\"><select name=\"cmd\"><option value=\"none\"></option><option value=\"restart\">Restart</option><option value=\"save-config\">Save Config.*</option><option value=\"restore\">Restore**</option></select><button type=\"submit\">Valid</button></form></td></tr></tbody></table>";
 const char HTTP_BODYI1[] PROGMEM = "</p><p style=\"line-height: 1.0; font-size: 10px;\">* All parameters in config.json file will be affected. <br>**The login/password and all flag will be set to default. Embedded File System will be reformatted &amp; cleared.</p></div><div>&nbsp;</div></div></center></body></html>";
+
 // constant HTML update if not defined in FS
-const char HTTP_FIRM0[] PROGMEM = "<script src='https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js'></script><center><header><h1 style='background-color: lightblue;'>HTML Update OTA</h1></header><div><p style='text-align: center;'>Use this page to update the firmware over the air to ESP32.<br/>You can use the binary format (firmware.bin) files.</p><form method='POST' action='#' enctype='multipart/form-data' id='upload_form'><input type='file' accept='.bin' name='update'><input type='submit' value='Update'></form><div id='prg'>progress: 0%</div></div><p style='line-height: 1.0; font-size: 10px;'>Warning: After firmware update the ESP32 will be restarted.</p> <script>$('form').submit(function(e){e.preventDefault();var form = $('#upload_form')[0];var data = new FormData(form); $.ajax({url: '/update',type: 'POST',data: data,contentType: false,processData:false,xhr: function() {var xhr=new window.XMLHttpRequest(); xhr.upload.addEventListener('progress', function(evt) {if (evt.lengthComputable) {var per = evt.loaded/evt.total; $('#prg').html('progress: '+Math.round(per*100)+'%');}}, false);return  xhr;},success:function(d, s){console.log('success!')},error: function (a, b, c) {}});});</script></center></body></ntml>";
+const char HTTP_FIRM0[] PROGMEM = "<script src='https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js'></script><center><header><h1 style='background-color: lightblue;'>HTML Update OTA</h1></header><div><p style='text-align: center;'>Use this page to update the firmware over the air to ESP32.<br/>You can use the binary format (firmware.bin) files.</p><form method='POST' action='#' enctype='multipart/form-data' id='upload_form'><input type='file' accept='.bin' name='update'><input type='submit' value='Update'></form><div id='prg'>progress: 0%</div></div><p style='line-height: 1.0; font-size: 10px;'>Warning: After firmware update the ESP32 will be restarted.</p> <script>$('form').submit(function(e){e.preventDefault();var form = $('#upload_form')[0];var data = new FormData(form); $.ajax({url: '/update',type: 'POST',data: data,contentType: false,processData:false,xhr: function() {var xhr=new window.XMLHttpRequest(); xhr.upload.addEventListener('progress', function(evt) {if (evt.lengthComputable) {var per = evt.loaded/evt.total; $('#prg').html('progress: '+Math.round(per*100)+'%');}}, false);return  xhr;},success:function(d, s){console.log('success!')},error: function (a, b, c) {}});});</script><a class='button' href='/''>Back</a></center></body></ntml>";
 const char HTTP_EXPL0[] PROGMEM = "<script>function clic(pa, el) { var r = confirm('Are you sure you want to '+pa+' '+el+' ?');if (r == true) { window.location='/explorer?cmd='+pa+'&file='+el; } }</script>\n<center><header><h1 style='background-color: lightblue'>File explorer</h1></header><div><table  width='500' cellpadding='0'>\n<tr><th>File Name</th><th>Size</th><th>Action</th></tr>\n";
 
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length);
@@ -46,17 +50,14 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
 //Init JSON
 DynamicJsonBuffer jsonBuffer(500);
 JsonObject& JSONRoot   = jsonBuffer.createObject();
-JsonObject& JSONSystem = JSONRoot.createNestedObject("System");
-JsonObject& JSONJeedom = JSONRoot.createNestedObject("Jeedom");
+
 // Default value in loadConfiguration function
 struct Config {            // First connexion LAN:esp32dudu IPAddress(192,168,0,1)
   char HostName[20];       // Default esp32dudu
   byte MacAddress[6];      // Default 0x30,0xAE,0xA4,0x90,0xFD,0xC8
   bool ResetWifi;          // Default false WiFimanager reconnect with last data
-  char OTAHostName[20];    // Default esp32dudu
-  char OTAPassword[20];    // Default empty
-  char UploadName[20];     // Default login admin
-  char UploadPassword[20]; // Default password admin
+  char LoginName[20];      // Default login admin For OTA and Web tools
+  char LoginPassword[20];  // Default password admin
   bool UseToolsLocal;      // True if simpleUpload must be called in case of not Upload.html
 };
 
@@ -76,20 +77,19 @@ String JsonConfig() {
   StaticJsonBuffer<1600> jsonBuffercfg; // Use https://arduinojson.org/assistant/ to compute the capacity.
   JsonObject &rootcfg = jsonBuffercfg.createObject(); // Parse the root object
   // Set the values
-  rootcfg["HostName"] = config.HostName;
+  rootcfg["HostName"]      = config.HostName;
   JsonArray& mac = rootcfg.createNestedArray("MacAddress");
   for (int i=0; i<6; i++)
     mac.add(config.MacAddress[i]);
-  rootcfg["ResetWifi"]      = config.ResetWifi;
-  rootcfg["OTAHostName"]    = config.OTAHostName;
-  rootcfg["OTAPassword"]    = config.OTAPassword;
-  rootcfg["UploadName"]     = config.UploadName;
-  rootcfg["UploadPassword"] = config.UploadPassword;
-  rootcfg["UseToolsLocal"]  = config.UseToolsLocal;
+  rootcfg["ResetWifi"]     = config.ResetWifi;
+  rootcfg["LoginName"]     = config.LoginName;
+  rootcfg["LoginPassword"] = config.LoginPassword;
+  rootcfg["UseToolsLocal"] = config.UseToolsLocal;
   // Transform to string
   rootcfg.printTo(configjson);
   return configjson;
 }
+
 String formatBytes(size_t bytes) { // convert sizes in bytes to KB and MB
   if (bytes < 1024) {
     return String(bytes) + "B";
@@ -100,28 +100,30 @@ String formatBytes(size_t bytes) { // convert sizes in bytes to KB and MB
   }
   return String(bytes) + "B";
 }
+
 //  Directory list
 void listDir(String& ret, fs::FS &fs, const char * dirname, uint8_t levels) {
   ret += F("Listing directory: ");
-  ret += dirname; ret += "\n";
+  ret += dirname; ret += "\n\r";
   File root = fs.open(dirname);
-  if (!root) { ret += F("Failed to open directory\n");  return;  }
-  if (!root.isDirectory()) { ret += F("Not a directory\n"); return; }
+  if (!root) { ret += F("Failed to open directory\n\r");  return;  }
+  if (!root.isDirectory()) { ret += F("Not a directory\n\r"); return; }
   File file = root.openNextFile();
   while (file) {
     if (file.isDirectory()) {
-      ret += F("  DIR : "); ret += file.name(); ret += "\n";
+      ret += F("  DIR : "); ret += file.name(); ret += "\n\r";
       if (levels)  listDir(ret, fs, file.name(), levels - 1);
     } else {
       ret += F("  FILE: "); ret += (file.name());  // SPIFFS_OBJ_NAME_LEN=32
       for (uint8_t l=strlen(file.name()); l<32; l+=8)
         ret += "\t";
-      ret += F("  SIZE: "); ret += (formatBytes(file.size())); ret += "\n";
+      ret += F("  SIZE: "); ret += (formatBytes(file.size())); ret += "\n\r";
     }
     file = root.openNextFile();
   }
   return;
 }
+
 String getContentType(String filename) {
   if (server.hasArg("download"))        { return "application/octet-stream";
   } else if (filename.endsWith(".htm")) { return "text/html";
@@ -149,7 +151,6 @@ String saveConfiguration(const char *filename, const Config &config) {
   return F("Config file has been saved.");
 }
 
-
 // Start SPIFFS & Read config file
 void startSPIFFS() {
   if (SPIFFS.begin()==false){
@@ -161,6 +162,7 @@ void startSPIFFS() {
   listDir(ls, SPIFFS, "/", 0);
   DBX(ls);
 }
+
 void loadConfiguration(const char *filename, Config &config) {
   // Open file for reading configuration
   File file = SPIFFS.open(filename, "r");
@@ -181,10 +183,8 @@ void loadConfiguration(const char *filename, Config &config) {
   for (int i=0; i<6; i++)
     config.MacAddress[i] = mac[i] | new_mac[i];
   config.ResetWifi = rootcfg["ResetWifi"] | false;
-  strlcpy(config.OTAHostName, rootcfg["OTAHostName"] | "esp32dudu",sizeof(config.OTAHostName));
-  strlcpy(config.OTAPassword, rootcfg["OTAPassword"] | "empty",sizeof(config.OTAPassword));
-  strlcpy(config.UploadName, rootcfg["UploadName"] | "admin",sizeof(config.UploadName));
-  strlcpy(config.UploadPassword, rootcfg["UploadPassword"] | "admin",sizeof(config.UploadPassword));
+  strlcpy(config.LoginName, rootcfg["LoginName"] | "admin",sizeof(config.LoginName));
+  strlcpy(config.LoginPassword, rootcfg["LoginPassword"] | "admin",sizeof(config.LoginPassword));
   config.UseToolsLocal = rootcfg["UseToolsLocal"] | true;
   if (!rootcfg.success()) {
     DBXLN(F("Error config file reading."));
@@ -228,12 +228,27 @@ void startWifiManager() {
 void startOTA(){
   // ArduinoOTA.setPort(8266); default is 8266
   // Hostname defaults to esp8266-[ChipID]
-  ArduinoOTA.setHostname(config.OTAHostName);
-  ArduinoOTA.setPassword(config.OTAPassword);
+  ArduinoOTA.setHostname(config.HostName);
+  ArduinoOTA.setPassword(config.LoginPassword);
   // Password can be set with it's md5 value as well
   // MD5(admin) = 21232f297a57a5a743894a0e4a801fc3
   // ArduinoOTA.setPasswordHash("21232f297a57a5a743894a0e4a801fc3");
   ArduinoOTA.begin();
+}
+
+// Show HTML Arguments and Header (use for debugging)
+void showAH(){
+	String m = "Nbr of args:";	m+=server.args();	m+="\n\r";
+	for(int i = 0; i < server.args(); i++) {
+		m+="Arg["+(String)i+"]=";		m+=server.argName(i)+":";	m+=server.arg(i)+"\n\r";
+	}
+	Serial.print(m);
+	String mm = "Nbr of heders:";	mm+=server.headers();	mm+="\n\r";
+	for(int i = 0; i < server.headers(); i++) {
+		mm+="Header["+(String)i+"]=";		mm+=server.headerName(i)+":";	mm+=server.header(i)+"\n\r";
+	}
+	Serial.print(mm);
+	Serial.print("hostHeader:");Serial.println(server.hostHeader());
 }
 
 // Start webSocket
@@ -279,7 +294,7 @@ bool handleFileRead(String path) {                         // send the right fil
   } else {
     if (config.UseToolsLocal) {
       if (path.endsWith("/index.html")){                     // Default index.html page
-        if (!server.authenticate(config.UploadName, config.UploadPassword)) {
+        if (!server.authenticate(config.LoginName, config.LoginPassword)) {
            server.requestAuthentication();
            return true;
         }
@@ -287,7 +302,7 @@ bool handleFileRead(String path) {                         // send the right fil
         return true;
       }
       if (path.endsWith("/update")){  // return index page which is stored in serverIndex
-        if (!server.authenticate(config.UploadName, config.UploadPassword)) {
+        if (!server.authenticate(config.LoginName, config.LoginPassword)) {
           server.requestAuthentication();
           return true;
         }
@@ -331,6 +346,7 @@ void handleFileUpload(){                                // upload a new file to 
     }
   }
 }
+
 String textNotFound(){
   String message = "404: File Not Found\n\n";
   message += "URI: ";
@@ -344,16 +360,14 @@ String textNotFound(){
     message += " " + server.argName(i) + ": " + server.arg(i) + "\n";
   return message;
 }
+
 void handlePost() {
   if (server.arg("cmd")!="") {
-//  for (uint8_t i=0; i<server.args(); i++) {
-//    if (server.argName(i).equals("cmd")) {
-      if (!server.authenticate(config.UploadName, config.UploadPassword))
+      if (!server.authenticate(config.LoginName, config.LoginPassword))
         return server.requestAuthentication();
-      if (server.arg("cmd").equals("save-config") ) saveConfiguration(filename, config);
-      if (server.arg("cmd").equals("restart") ) RebootAsap = true;
-      if (server.arg("cmd").equals("restore") ) RestoreAsap = true;
-//    }
+      if (server.arg("cmd") == "save-config" ) saveConfiguration(filename, config);
+      if (server.arg("cmd") == "restart" ) RebootAsap = true;
+      if (server.arg("cmd") == "restore" ) RestoreAsap = true;
   }
   server.sendHeader("Location","/");      // Redirect the client to the index page
   server.send(303);
@@ -363,6 +377,7 @@ void handleNotFound(){ // if the requested file or page doesn't exist, return a 
     server.send(404, "text/plain", textNotFound());
   }
 }
+
 //  Directory list
 void explorer(String& ret, fs::FS &fs, const char * dirname, uint8_t levels) {
   File root = fs.open(dirname);
@@ -373,16 +388,19 @@ void explorer(String& ret, fs::FS &fs, const char * dirname, uint8_t levels) {
     if (file.isDirectory()) {
       if (levels)  explorer(ret, fs, file.name(), levels - 1);
     } else {
-			ret += "<tr><td>";	ret += (file.name());
+      String strf = (file.name());
+			ret += "<tr><td>";
+      ret += "<a href='";ret += strf;ret += "' >";ret += strf; ret += "</a>";
 			ret += "</td><td>"+(formatBytes(file.size()))+"</td>\n";
-			ret += "<td style='text-align: center;''><button onClick=\"clic('remove', '"; ret += (file.name());
-			ret += "' )\">Remove</button>\n <button onClick=\"clic('download', '"; ret += (file.name());
+			ret += "<td style='text-align: center;''><button onClick=\"clic('remove', '"; ret += (strf);
+			ret += "' )\">Remove</button>\n <button onClick=\"clic('download', '"; ret += (strf);
 		  ret += "' )\">Download</button></td></tr>\n";
     }
     file = root.openNextFile();
   }
   return;
 }
+
 void download(String filename){
   File download = SPIFFS.open(filename);
   if (download) {
@@ -395,16 +413,14 @@ void download(String filename){
   }
   server.send(500, "text/plain", "500: couldn't download file");
 }
+
 // Start web server
 void startWebServer(){
   // POST
   server.on("/post",  HTTP_POST, []() {        // If a POST request is sent to the /edit.html address,
     handlePost();
   });
- // Test
-  server.on("/inline", [](){
-    server.send(200, "text/plain", "this works as well"); // Just for some test
-  });
+
   // Simple command wihout pwd
   server.on("/ls", [](){                      // Get list of file in FS
     String ls;
@@ -419,7 +435,7 @@ void startWebServer(){
   },[](){
     HTTPUpload& upload = server.upload();
     if(upload.status == UPLOAD_FILE_START){
-      Serial.printf("Update: %s\n", upload.filename.c_str());
+      Serial.printf("Update: %s\n\r", upload.filename.c_str());
       if(!Update.begin(UPDATE_SIZE_UNKNOWN)){//start with max available size
         Update.printError(Serial);
       }
@@ -430,15 +446,15 @@ void startWebServer(){
       }
     } else if(upload.status == UPLOAD_FILE_END){
       if(Update.end(true)){ //true to set the size to the current progress
-        Serial.printf("Update Success: %u\nRebooting...\n", upload.totalSize);
+        Serial.printf("Update Success: %u\n\rRebooting...\n\r", upload.totalSize);
       } else {
         Update.printError(Serial);
       }
     }
   });
   // handling upload file
-  server.on("/Upload", HTTP_GET, []() {        // Upload
-    if (!server.authenticate(config.UploadName, config.UploadPassword)) {
+  server.on("/upload", HTTP_GET, []() {        // Upload
+    if (!server.authenticate(config.LoginName, config.LoginPassword)) {
       return server.requestAuthentication();
     }
     if (!handleFileRead("/upload.html")) {    // upload.html exist on FS
@@ -446,7 +462,7 @@ void startWebServer(){
       else server.send(404, "text/plain", "FileNotFound");
     }
   });
-  server.on("/Upload", HTTP_POST, []() {       // Back after selection
+  server.on("/upload", HTTP_POST, []() {       // Back after selection
     server.send(200, "text/plain", "");
   }, handleFileUpload);
   server.onNotFound([]() {
@@ -456,14 +472,14 @@ void startWebServer(){
   });
   server.on("/explorer", [](){                      // Get list of file in FS
     // showAH();
+    if (!server.authenticate(config.LoginName, config.LoginPassword)) return server.requestAuthentication();
     if (server.arg("cmd")=="remove") {
-        if (!server.authenticate(config.UploadName, config.UploadPassword)) return server.requestAuthentication();
-        if (server.arg("file") != "" ) SPIFFS.remove(server.arg("file"));
+      if (server.arg("file") != "" ) SPIFFS.remove(server.arg("file"));
     }
     if (server.arg("cmd")=="download") {
-        if (!server.authenticate(config.UploadName, config.UploadPassword)) return server.requestAuthentication();
-        if (server.arg("file") != "" ) download(server.arg("file"));
+      if (server.arg("file") != "" ) download(server.arg("file"));
     }
+    // Return list of files in table
     String msg = FPSTR(HTTP_HEADAL);
     msg += FPSTR(HTTP_EXPL0);
     explorer(msg, SPIFFS, "/", 0);
@@ -473,6 +489,7 @@ void startWebServer(){
   server.onNotFound(handleNotFound);         // Not found page
   server.begin();
 }
+
 // Start MDNS
 void startMDNS() {
   // - first argument is the domain name, in this example   the fully-qualified domain name is "esp8266.local"
@@ -495,9 +512,12 @@ void frame_setup() {
   startWebSocket();                // Start a WebSocket server
   startWebServer();                // Start a HTTP server with a file read handler and an upload handler
   startMDNS();                     // Start the mDNS responder
+  DBXLN(FPSTR(FrameVersion));
   DBX(F("Setup_Frame finished IP:"));
   Serial.println(WiFi.localIP());;
+
 }
+
 // Main loop -----------------------------------------------------------------
 void frame_loop() {
   server.handleClient();         // constantly check for events
