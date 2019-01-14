@@ -30,11 +30,11 @@
   #define DBXLN(...)
 #endif
 
-const char  FrameVersion[] PROGMEM = "-=< Ver:0.1.2 >=-";
+const char  FrameVersion[] PROGMEM = "-=< Frame Ver:0.1.4 >=-";
 
 // constant HTML Uploader if not defined in FS
 const char HTTP_HEADAL[] PROGMEM = "<!DOCTYPE html><html><head><title>HTML ESP32Dudu</title><meta content='width=device-width' name='viewport'></head>\n";
-const char HTTP_BODYUP[] PROGMEM = "<body><center><header><h1 style='background-color:lightblue'>HTML Uploader</h1></header><div><p style='text-align: center'>\nUse this page to upload new files to the ESP32.<br/>You can use compressed (.gz) files.</p>\n<form method='post' enctype='multipart/form-data' style='margin: 0px auto 8px auto' >\n<input type='file' name='Choose file' accept='.gz,.html,.ico,.js,.css,.png,.gif,.jpg,.xml,.pdf,.htm'><input class='button' type='submit' value='Upload' name='submit'></form>\n</div><a class='button' href='/''>Back</a></center></body></html>";
+const char HTTP_BODYUP[] PROGMEM = "<body><center><header><h1 style='background-color:lightblue'>HTML Uploader</h1></header><div><p style='text-align: center'>\nUse this page to upload new files to the ESP32.<br/>You can use compressed (.gz) files.</p>\n<form method='post' enctype='multipart/form-data' style='margin: 0px auto 8px auto' >\n<input type='file' name='Choose file' accept='.gz,.html,.ico,.js,.json,.css,.png,.gif,.jpg,.xml,.pdf,.htm'><input class='button' type='submit' value='Upload' name='submit'></form>\n</div><a class='button' href='/''>Back</a></center></body></html>";
 
 // constant HTML Tools if not defined in FS // not use <script>function valid(param) { var r = confirm(\"Are you sure you want to execute this action?\");if (r == true) { window.location=param; } }</script>
 const char HTTP_BODYID[] PROGMEM = "<body><center><header><h1 style=\"background-color: lightblue;\">HTML Esp32 Tools</h1></header>\n<div><p style=\"text-align: center;\">Use this page to access the ESP32 embedded tools.<br />You are here because there is no index.html uploaded.</p><div style=\"text-align: left; position: absolute; left: 50%; transform: translate(-50%, 0%);\"><p style=\"line-height: .1;\"><em><strong>Configuration facilities</strong></em><br /><table width=\"500\" cellpadding=\"0\"><tr><td>- Files explorer of SPI Flash File System</td><td align=\"right\"><button  style=\"width: 60%;\" onClick=\"window.location='/explorer';\">Explorer</button><button  style=\"width: 28%;\" onClick=\"window.location='/ls';\">Ls</button></td></tr> <tr><td>- Show configuration file used at startup</td><td align=\"right\"><button style=\"width: 90%;\" onClick=\"window.location='/config.json';\">Config.json</button></td></tr><tr><td>- Upload files to SPI Flash File System</td><td align=\"right\"><button style=\"width: 90%;\" onClick=\"window.location='/upload';\">Uploader</button></td></tr><tr><td>- Update firmware O.T.A. to the EPS32</td><td align=\"right\"><button style=\"width: 90%;\" onClick=\"window.location='/update';\">Update</button></td></tr></table>";
@@ -74,7 +74,7 @@ WebSocketsServer webSocket = WebSocketsServer(81);
 
 String JsonConfig() {
   String configjson;
-  StaticJsonBuffer<1600> jsonBuffercfg; // Use https://arduinojson.org/assistant/ to compute the capacity.
+  StaticJsonBuffer<1000> jsonBuffercfg; // Use https://arduinojson.org/assistant/ to compute the capacity.
   JsonObject &rootcfg = jsonBuffercfg.createObject(); // Parse the root object
   // Set the values
   rootcfg["HostName"]      = config.HostName;
@@ -104,20 +104,20 @@ String formatBytes(size_t bytes) { // convert sizes in bytes to KB and MB
 //  Directory list
 void listDir(String& ret, fs::FS &fs, const char * dirname, uint8_t levels) {
   ret += F("Listing directory: ");
-  ret += dirname; ret += "\n\r";
+  ret += dirname; ret += "\n";
   File root = fs.open(dirname);
-  if (!root) { ret += F("Failed to open directory\n\r");  return;  }
+  if (!root) { ret += F("Failed to open directory\n");  return;  }
   if (!root.isDirectory()) { ret += F("Not a directory\n\r"); return; }
   File file = root.openNextFile();
   while (file) {
     if (file.isDirectory()) {
-      ret += F("  DIR : "); ret += file.name(); ret += "\n\r";
+      ret += F("  DIR : "); ret += file.name(); ret += "\n";
       if (levels)  listDir(ret, fs, file.name(), levels - 1);
     } else {
       ret += F("  FILE: "); ret += (file.name());  // SPIFFS_OBJ_NAME_LEN=32
       for (uint8_t l=strlen(file.name()); l<32; l+=8)
         ret += "\t";
-      ret += F("  SIZE: "); ret += (formatBytes(file.size())); ret += "\n\r";
+      ret += F("  SIZE: "); ret += (formatBytes(file.size())); ret += "\n";
     }
     file = root.openNextFile();
   }
@@ -158,9 +158,9 @@ void startSPIFFS() {
     SPIFFS.format();
     SPIFFS.begin();
   }
-  String ls;
-  listDir(ls, SPIFFS, "/", 0);
-  DBX(ls);
+  // String ls;
+  // listDir(ls, SPIFFS, "/", 0);
+  // DBX(ls);
 }
 
 void loadConfiguration(const char *filename, Config &config) {
@@ -527,7 +527,7 @@ void frame_loop() {
   if (RestoreAsap) {             // Reset to factory settings
     SPIFFS.format();
     WiFiManager wifiManager;
-    wifiManager.resetSettings(); // BUG the stored ssid saty !!
+    wifiManager.resetSettings(); // BUG the stored ssid no clear !!
     ESP.restart();
   }
 }
