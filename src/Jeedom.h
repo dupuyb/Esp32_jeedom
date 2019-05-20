@@ -27,15 +27,21 @@ public:
        return false;
     }
     String cfJeedomjson;
-    StaticJsonBuffer<500> jsonBuffercfg;
-    JsonObject &rootcfg = jsonBuffercfg.createObject();
+    // ArduinoJson 5
+    // StaticJsonBuffer<500> jsonBuffercfg();
+    // JsonObject &rootcfg = jsonBuffercfg.createObject();
+    // ArduinoJson 6
+    DynamicJsonDocument rootcfg(500);
     rootcfg["host"] = config.host;
     rootcfg["port"] = config.port;
     rootcfg["apiKey"] = config.apiKey;
     rootcfg["fluxReference"] = config.fluxReference;
     rootcfg["openDelay"] = config.openDelay;
     rootcfg["waterM3"] = config.waterM3;
-    rootcfg.printTo(cfJeedomjson);
+    // ArduinoJson 5
+    // rootcfg.printTo(cfJeedomjson);
+    // ArduinoJson 6
+    serializeJson(rootcfg, cfJeedomjson);
     file.print(cfJeedomjson);
     file.close();
     ccrConfig = getCcrConfig();
@@ -52,15 +58,19 @@ public:
       size_t size = file.size();
       std::unique_ptr<char[]> buf(new char[size]);
       file.readBytes(buf.get(), size);
-      StaticJsonBuffer<600> jsonBufferConfigJeedom;
-      JsonObject& rootcfg = jsonBufferConfigJeedom.parseObject(buf.get());
+      // ArduinoJson 5
+      // StaticJsonBuffer<600> jsonBufferConfigJeedom;
+      // JsonObject& rootcfg = jsonBufferConfigJeedom.parseObject(buf.get());
+      // ArduinoJson 6
+      DynamicJsonDocument rootcfg(1024);
+      auto error = deserializeJson(rootcfg, buf.get());
       strlcpy(config.host, rootcfg["host"] | "192.168.1.117", sizeof(config.host));
       config.port = rootcfg["port"] | 80;
       strlcpy(config.apiKey, rootcfg["apiKey"] | "unknown", sizeof(config.apiKey));
       config.fluxReference = rootcfg["fluxReference"] | 1.0; // default 2 pulse per liter
       config.openDelay = rootcfg["openDelay"] | 15.0; // default 15 minutes
       config.waterM3 = rootcfg["waterM3"] | 0.000; // Read local counter
-      if (!rootcfg.success()) saveConfigurationJeedom();
+      if (error /*!rootcfg.success()*/) saveConfigurationJeedom();
     }
     ccrConfig = getCcrConfig();
   }
@@ -70,6 +80,7 @@ public:
   };
 
   void setup() {
+    jeeComErr = 0;
     loadConfigurationJeedom();
     virtualbaseurl = "/core/api/jeeApi.php?apikey=";
     virtualbaseurl += config.apiKey;
@@ -83,8 +94,14 @@ public:
     url += url + "&value="; url += String(temp);
     http.begin(config.host,config.port, url);
     int httpCode = http.GET();
+    if (httpCode!=HTTP_CODE_OK) jeeComErr++;
+    else jeeComErr = 0;
     http.end();
     return httpCode;
+  }
+
+  int getErrorCounter() {
+    return jeeComErr;
   }
 
 private :
@@ -109,6 +126,7 @@ private:
   const char * fileconfigjeedom;
   HTTPClient http;
   String virtualbaseurl;
+  int jeeComErr;
 
 };
 

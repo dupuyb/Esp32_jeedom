@@ -47,9 +47,9 @@ const char HTTP_EXPL0[] PROGMEM = "<script>function clic(pa, el) { var r = confi
 
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length);
 
-//Init JSON
-DynamicJsonBuffer jsonBuffer(500);
-JsonObject& JSONRoot   = jsonBuffer.createObject();
+//Init JSON ArduinoJson 6
+DynamicJsonDocument jsonBuffer(500);
+// JsonObject& JSONRoot   = jsonBuffer.createObject();
 
 // Default value in loadConfiguration function
 struct Config {            // First connexion LAN:esp32dudu IPAddress(192,168,0,1)
@@ -74,11 +74,14 @@ WebSocketsServer webSocket = WebSocketsServer(81);
 
 String JsonConfig() {
   String configjson;
-  StaticJsonBuffer<1000> jsonBuffercfg; // Use https://arduinojson.org/assistant/ to compute the capacity.
-  JsonObject &rootcfg = jsonBuffercfg.createObject(); // Parse the root object
+  // ArduinoJson 5
+  // DynamicJsonDocument<1000> jsonBuffercfg; // Use https://arduinojson.org/assistant/ to compute the capacity.
+  //  JsonObject &rootcfg = jsonBuffercfg.createObject(); // Parse the root object
+  // ArduinoJson 6
+  DynamicJsonDocument rootcfg(1024);
   // Set the values
   rootcfg["HostName"]      = config.HostName;
-  JsonArray& mac = rootcfg.createNestedArray("MacAddress");
+  JsonArray mac = rootcfg.createNestedArray("MacAddress");
   for (int i=0; i<6; i++)
     mac.add(config.MacAddress[i]);
   rootcfg["ResetWifi"]     = config.ResetWifi;
@@ -86,7 +89,8 @@ String JsonConfig() {
   rootcfg["LoginPassword"] = config.LoginPassword;
   rootcfg["UseToolsLocal"] = config.UseToolsLocal;
   // Transform to string
-  rootcfg.printTo(configjson);
+  // rootcfg.printTo(configjson);
+  serializeJson(rootcfg, configjson);
   return configjson;
 }
 
@@ -174,19 +178,24 @@ void loadConfiguration(const char *filename, Config &config) {
   // allocate buffer for loading config
   std::unique_ptr<char[]> buf(new char[size]);
   file.readBytes(buf.get(), size);
-  StaticJsonBuffer<1600> jsonBufferConfig;
-  JsonObject& rootcfg = jsonBufferConfig.parseObject(buf.get());
+  // ArduinoJson 5
+  // StaticJsonBuffer<1600> jsonBufferConfig;
+  // JsonObject& rootcfg = jsonBufferConfig.parseObject(buf.get());
+  // ArduinoJson 6
+  DynamicJsonDocument rootcfg(1024);
+  auto error = deserializeJson(rootcfg, buf.get());
+
   // Set config or defaults
   strlcpy(config.HostName, rootcfg["HostName"] | "esp32dudu",sizeof(config.HostName));
   byte new_mac[8] = {0x30,0xAE,0xA4,0x90,0xFD,0xC8};
-  JsonArray& mac = rootcfg["MacAddress"];
+  JsonArray mac = rootcfg["MacAddress"];
   for (int i=0; i<6; i++)
     config.MacAddress[i] = mac[i] | new_mac[i];
   config.ResetWifi = rootcfg["ResetWifi"] | false;
   strlcpy(config.LoginName, rootcfg["LoginName"] | "admin",sizeof(config.LoginName));
   strlcpy(config.LoginPassword, rootcfg["LoginPassword"] | "admin",sizeof(config.LoginPassword));
   config.UseToolsLocal = rootcfg["UseToolsLocal"] | true;
-  if (!rootcfg.success()) {
+  if ( /*!rootcfg.success()*/ error) {
     DBXLN(F("Error config file reading."));
     String ret = saveConfiguration(filename, config);
     DBXLN(ret);

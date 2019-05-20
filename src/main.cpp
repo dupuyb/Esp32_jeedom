@@ -207,10 +207,21 @@ bool getDHTTemperature(){
   return ret;
 }
 
+// WatchDog:  wdCounter is set to 0 otherwise after 15 minutes ESP is restarted
+uint32_t wdCounter = 0;
+void watchdog(void *pvParameter) {
+  while (1) {
+    vTaskDelay(5000/portTICK_RATE_MS);
+    wdCounter++;
+    if (wdCounter > 180) ESP.restart(); // Restart after 5sec * 180 => 15min
+  }
+}
+
 void setup() {
   Serial.begin(115200);
   Serial.print("Version:"); Serial.println(VERSION);
-
+  // Start my WatchDog
+  xTaskCreate(&watchdog, "wd task", 2048, NULL, 5, NULL);
   // Set pin mode  I/O Directions
   pinMode(EspLedBlue, OUTPUT);     // Led is BLUE at statup
   digitalWrite(EspLedBlue, HIGH);  // After 5 seconds blinking indicate WiFI ids OK
@@ -255,7 +266,7 @@ void loop() {
   }
 
   // Call flux loop
-  flux.loop();
+  flux.loop(getDate());
 
   // Call frame loop
   frame_loop();
@@ -318,7 +329,7 @@ void loop() {
     else keyLedBuz.rgb2 = 0x0;
 
     if ( cmd=='d' ) {
-      Serial.printf("%s Flux Ref:%.1f%% l/m:%.1f Eau:%s valve:%s Fx:%.3fm3 bad:%dsec. rgb=0x%X rgb2=0x%X \n\r",
+      Serial.printf("%s Flux Ref:%.1f%% l/m:%.1f Eau:%s valve:%s Fx:%.3fm3 bad:%dsec. rgb=0x%X rgb2=0x%X wdCounter=%d \n\r",
                     getDate().c_str(),
                     jeedom.config.fluxReference,
                     flux.literPerMinute,
@@ -327,7 +338,8 @@ void loop() {
                     ((float)flux.interruptCounter/(jeedom.config.fluxReference * 1000)),
                     cntFluxBadSec,
                     keyLedBuz.rgb,
-                    keyLedBuz.rgb2
+                    keyLedBuz.rgb2,
+                    wdCounter
                    );
     }
 
@@ -340,12 +352,13 @@ void loop() {
     }
 
     if (cmd=='s') onChanged = true;
-    // every 3 hours. update Gaz power & Water counter & recod jeedom config if changed
+    // every 3 hours. update Gaz power & Water counter & record jeedom config if changed
     boolean quater = ( (timeinfo.tm_hour % 3 == 0) && (timeinfo.tm_min == 0) && (timeinfo.tm_sec == 0));
     if ( onChanged || quater ) {
       jeedom.sendVirtual(idDebitA, flux.literPerMinute);
       jeedom.sendVirtual(idDebitD, !flux.state);
       jeedom.sendVirtual(idValve,  !isValveClosed);
+      // Probleme a voir il y a des entree en BD tous les 3 heures A TESTER aavec vannes fermé pendant + 3 heures
       jeedom.config.waterM3 = ((float)flux.interruptCounter/(jeedom.config.fluxReference * 1000) );
       jeedom.sendVirtual(idDebitT, jeedom.config.waterM3);
       if ( quater && jeedom.isCcrChanged()) saveConfigJeedom = true;
@@ -355,32 +368,48 @@ void loop() {
                                      flux.literPerMinute,
                                      (flux.state)?("On "):("Off"),
                                      (isValveClosed)?("Close"):("Open "),
-                                     ((float)flux.interruptCounter/(jeedom.config.fluxReference * 1000)),
+                                     jeedom.config.waterM3,
                                      (onChanged)?("True "):("False")
                                      );
       }
       onChanged = false;
     }
 
-    // DHT read every 60 seconds
-		if (timeinfo.tm_sec == 30) {
+    // DHT read every 120 seconds
+		if ( (timeinfo.tm_min % 2==0) && timeinfo.tm_sec == 30) {
       // if wifi is down, try reconnecting every 60 seconds
       if ((WiFi.status() != WL_CONNECTED) ) {
         wifiLost++;
-        Serial.printf("%s WiFi connection is lost (%d).",getDate().c_str(), wifiLost);
-        if (wifiLost==3) saveConfigJeedom = true;
-        if (wifiLost>5)  ESP.restart();
+        if (wifiLost == 2 ) {
+          Serial.printf("%s WiFi connection is lost. cnt:%d jeeErrCnt:%d\n\r",getDate().c_str(), wifiLost, jeedom.getErrorCounter());
+          saveConfigJeedom = true;
+        }
+        if (wifiLost == 4) {
+          if (WiFi.reconnect()) {
+            Serial.printf("%s WiFi reconnect OK (%d). \n\r",getDate().c_str(), wifiLost);
+            wifiLost = 0;
+          }
+        }
+      } else {
+        // Test if Jeedom is Connected
+        if(  jeedom.getErrorCounter()!= 0 ) {
+          Serial.printf("%s WiFi correct but jeedom error jeeErrCnt:%d\n\r",getDate().c_str(), jeedom.getErrorCounter());
+        }
       }
 	  }
 
     // Every 5 minutes record T and H
-    if ( cmd=='i' || ((timeinfo.tm_min % 5==0) && (timeinfo.tm_sec == 15) )) {
+    if ( (timeinfo.tm_min % 5==0) && (timeinfo.tm_sec == 15) ) {
+      wdCounter = 0; // Reset WD
       if (getDHTTemperature())
         retJeedom = jeedom.sendVirtual(idTemp, temperatureDHT);
       if (retJeedom==HTTP_CODE_OK && getDHTHumidity())
         retJeedom = jeedom.sendVirtual(idHumi, humidityDHT);
       if (cmd=='d' || cmd =='j' || cmd =='i') {
         Serial.printf("%s Opt Heap:%u Jee:%d Temp:%.1f°C Hum:%.1f%% \n\r",getDate().c_str(), ESP.getFreeHeap(), retJeedom, temperatureDHT, humidityDHT);
+      }
+      if ( (retJeedom > 0) && (retJeedom != HTTP_CODE_OK) ) {
+        saveConfigJeedom = true;
       }
     }
 

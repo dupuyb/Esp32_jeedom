@@ -1,6 +1,9 @@
 #ifndef JFlux_h
 #define JFlux_h
 
+// Debug macro
+#define DEBUG_FLUX
+
 class JFlux {
 public:
 
@@ -9,16 +12,21 @@ public:
   }
 
   // Better than irq at 6-7 l/m irq signal is like:
-  // _-------_--------_----- 1,6sec. Low 7sec. High
-  void loop() {
+  // _-------_--------_----- 1,6sec. Low and 7sec. High
+  // New irq AND time > 0.5 sec
+  void loop(String dt) {
+    unsigned long now = millis();
     int val = digitalRead(interrupPin);
-    if (interruptVal != val ) {
-      if (val == 0) {
+    // Evaluation every 0.5 second
+    if ( abs(now-logTimeMs[1]) > 500 && interruptVal != val ) {
+      if (val==0) {
         interruptCounter++;
         logTimeMs[0] = logTimeMs[1];
-        logTimeMs[1] = millis();
+        logTimeMs[1] = now;
+#ifdef DEBUG_FLUX
+        Serial.printf("JFlux.loop %s --> irq:%llu\n\r", dt.c_str(), interruptCounter);
+#endif
       }
-      //Serial.printf("time%lu ms VAL=%d \n\r",  millis(), interruptVal);
       interruptVal = val;
     }
   }
@@ -29,10 +37,12 @@ public:
     logCounter = interruptCounter;
     for (int i=0;i<2;i++)
        logTimeMs[i] = millis();
-  //  Serial.printf("JFlux.setup(tot:%.3f, ipl:%f)->irq:%llu \n\r", totWaterM3, implusionPerLitre, interruptCounter);
-    // We don't use IRQ more stable
-    pinMode(interrupPin, INPUT);
-    pinMode(interrupPin, INPUT_PULLUP);
+#ifdef DEBUG_FLUX
+    Serial.printf("JFlux.setup(tot:%.3f, ipl:%f)->irq:%llu \n\r", totWaterM3, implusionPerLitre, interruptCounter);
+#endif
+    // We don't use IRQ more stabilitie
+    // pinMode(interrupPin, INPUT);
+    // pinMode(interrupPin, INPUT_PULLUP);
     interruptVal = digitalRead(interrupPin);
   }
 
@@ -42,8 +52,8 @@ public:
     if (logCounter != interruptCounter) {
       logCounter = interruptCounter;
       logTimeEpoc = mktime(time);
-      long ecart = abs(logTimeMs[1] - logTimeMs[0]);
-      if ( ecart > 0 ) literPerMinute = 60000.0 / (float)ecart;
+      long ecartMs = abs(logTimeMs[1] - logTimeMs[0]);
+      if ( ecartMs > 0 ) literPerMinute = 60000.0 / (float)ecartMs;
       state = true;
     } else {
       if ( intervalNow > 30 ) {   // 30 seconds without any changing
