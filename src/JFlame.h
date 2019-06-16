@@ -7,6 +7,7 @@ public:
 
   JFlame(int pinA) {
     pinFlameAo = pinA;
+    pinMode(pinFlameAo, INPUT);
   }
 
   // Call every seconds anti-rebond
@@ -25,17 +26,18 @@ public:
         float up = (float)(dnTime[1]-upTime[0]);
         float ud = (float)(upTime[1]-upTime[0]);
         flamePerCent = (up /  ud ) * 100.0 ;
-      //  Serial.printf("On  up[1]=%lu up[0]=%lu flamePerCent=%f \r\n", upTime[1], upTime[0], flamePerCent );
       } else {
         dnTime[0] = dnTime[1];
         dnTime[1] = mktime(time);
         float up = (float)(dnTime[1]-upTime[1]);
         float ud = (float)(dnTime[1]-dnTime[0]);
         flamePerCent = (up / ud ) * 100.0 ;
-      //  Serial.printf("Off dn[1]=%lu dn[0]=%lu flamePerCent=%f \r\n", dnTime[1], dnTime[0], flamePerCent );
       }
       if (flamePerCent < 0) flamePerCent = 0;
       if (flamePerCent > 100.0) flamePerCent = 100.0;
+#ifdef DEBUG_FLAME
+  Serial.printf("JFlame.isChanged(%s %02d:%02d:%02d)->flamePerCent:%f \n\r", ((state)?("On  at "):("Off at ")), time->tm_hour, time->tm_min, time->tm_sec ,flamePerCent);
+#endif
     }
     return changed;
   }

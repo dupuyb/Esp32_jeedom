@@ -5,11 +5,13 @@
 #include <time.h>
 #include "DHT.h"
 #include "Jeedom.h"
+#define DEBUG_FLAME
 #include "JFlame.h"
+#define DEBUG_FLUX
 #include "JFlux.h"
 #include "JKeyLedBuz.h"
 
-const char VERSION[] = "Ver:0.4.2";
+const char VERSION[] = "Ver:0.7.2";
 // Debug macro
 #ifdef DEBUG_MAIN
   #define DBXM(...) Serial.print(__VA_ARGS__)
@@ -207,13 +209,17 @@ bool getDHTTemperature(){
   return ret;
 }
 
-// WatchDog:  wdCounter is set to 0 otherwise after 15 minutes ESP is restarted
+// WatchDog:  wdCounter is set to 0 at (timeinfo.tm_min % 5==0) && (timeinfo.tm_sec == 15)
+//            otherwise after 15 minutes ESP is restarted
 uint32_t wdCounter = 0;
 void watchdog(void *pvParameter) {
   while (1) {
     vTaskDelay(5000/portTICK_RATE_MS);
     wdCounter++;
-    if (wdCounter > 180) ESP.restart(); // Restart after 5sec * 180 => 15min
+    if (wdCounter > 180) {
+      if (wdCounter == 181 ) Serial.printf("%s wdCounter:%d REBOOT...\n\r", getDate().c_str(), wdCounter);
+      else ESP.restart(); // Restart after 5sec * 180 => 15min
+    }
   }
 }
 
@@ -266,7 +272,7 @@ void loop() {
   }
 
   // Call flux loop
-  flux.loop(getDate());
+  flux.loop();
 
   // Call frame loop
   frame_loop();
@@ -287,7 +293,7 @@ void loop() {
     }
   }
 
-  // Is alive every 1 sec.
+  // Is alive executed every 1 sec.
   if ( millis() - previousMillis > 1000L) {
     previousMillis = millis();
 		getLocalTime(&timeinfo);
@@ -295,7 +301,7 @@ void loop() {
     int  retJeedom = 0;
 
     // Boiler is changed
-    if (flame.isChanged(&timeinfo, 1100)) { // hysteresis = 1000/10 * 2
+    if (flame.isChanged(&timeinfo, 1000)) { // hysteresis = 1000/10 * 2
       retJeedom = jeedom.sendVirtual(idPower, flame.flamePerCent);
       retJeedom = jeedom.sendVirtual(idFlam,  flame.state);
       if (retJeedom!=HTTP_CODE_OK)
@@ -329,7 +335,7 @@ void loop() {
     else keyLedBuz.rgb2 = 0x0;
 
     if ( cmd=='d' ) {
-      Serial.printf("%s Flux Ref:%.1f%% l/m:%.1f Eau:%s valve:%s Fx:%.3fm3 bad:%dsec. rgb=0x%X rgb2=0x%X wdCounter=%d \n\r",
+      Serial.printf("%s Flux Ref:%.1f%% l/m:%.1f Eau:%s valve:%s Fx:%.3fm3 bad:%dsec. Flame:%s rgb:0x%X rgb2:0x%X wdCounter:%d \n\r",
                     getDate().c_str(),
                     jeedom.config.fluxReference,
                     flux.literPerMinute,
@@ -337,6 +343,7 @@ void loop() {
                     (isValveClosed)?("Close"):("Open "),
                     ((float)flux.interruptCounter/(jeedom.config.fluxReference * 1000)),
                     cntFluxBadSec,
+                    (flame.state)?("On "):("Off"),
                     keyLedBuz.rgb,
                     keyLedBuz.rgb2,
                     wdCounter
@@ -393,7 +400,7 @@ void loop() {
       } else {
         // Test if Jeedom is Connected
         if(  jeedom.getErrorCounter()!= 0 ) {
-          Serial.printf("%s WiFi correct but jeedom error jeeErrCnt:%d\n\r",getDate().c_str(), jeedom.getErrorCounter());
+          Serial.printf("%s WiFi connected but jeedom error jeeErrCnt:%d\n\r",getDate().c_str(), jeedom.getErrorCounter());
         }
       }
 	  }
