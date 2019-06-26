@@ -21,23 +21,22 @@ public:
     // record changed only
     if (changed) {
       if (state) {
+        // ---D0____U0----D1____U1--
         upTime[0] = upTime[1];
         upTime[1] = mktime(time);
         float up = (float)(dnTime[1]-upTime[0]);
-        float ud = (float)(upTime[1]-upTime[0]);
-        flamePerCent = (up /  ud ) * 100.0 ;
+        float tt = (float)(upTime[1]-upTime[0]);
+        flamePerCent = (up /  tt ) * 100.0 ;
       } else {
+        // ___U0----D0____U1-----D1__
         dnTime[0] = dnTime[1];
         dnTime[1] = mktime(time);
         float up = (float)(dnTime[1]-upTime[1]);
-        float ud = (float)(dnTime[1]-dnTime[0]);
-        flamePerCent = (up / ud ) * 100.0 ;
+        float tt = (float)(dnTime[1]-dnTime[0]);
+        flamePerCent = (up / tt ) * 100.0 ;
       }
       if (flamePerCent < 0) flamePerCent = 0;
       if (flamePerCent > 100.0) flamePerCent = 100.0;
-#ifdef DEBUG_FLAME
-  Serial.printf("JFlame.isChanged(%s %02d:%02d:%02d)->flamePerCent:%f \n\r", ((state)?("On  at "):("Off at ")), time->tm_hour, time->tm_min, time->tm_sec ,flamePerCent);
-#endif
     }
     return changed;
   }
@@ -46,9 +45,9 @@ public:
   bool state = false; // Flame status
   uint32_t value;     // IR analog value
   float flamePerCent = 0; // Percent ON
-  int pinFlameAo;     // Analog input pin
 
 private:
+  int pinFlameAo;     // Analog input pin
   bool crtFlame = false;
   unsigned long upTime[2];
   unsigned long dnTime[2];

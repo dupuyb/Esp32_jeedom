@@ -86,16 +86,17 @@ public:
     // dimmer variation
     if (flip) dimmer++;
     else dimmer--;
-    if (dimmer==8 || dimmer==0)  flip = !flip;
+      // Reduce LED Intensity FF become 7F And dimmer from 8 to 7
+    if (dimmer==7 || dimmer==0)  flip = !flip;
     if ( rgb2!=0 && dimmer<2 ) {
-      ledcWrite(0, ( rgb2 & 0xFF0000)>>(16+dimmer));
-      ledcWrite(1, ( rgb2 & 0x00FF00)>>(8+dimmer));
-      ledcWrite(2, ( rgb2 & 0x0000FF)>>dimmer);
+      ledcWrite(0, ( rgb2 & 0x7F0000)>>(16+dimmer));
+      ledcWrite(1, ( rgb2 & 0x007F00)>>(8+dimmer));
+      ledcWrite(2, ( rgb2 & 0x00007F)>>dimmer);
     } else {
       // Led RGB smoth variation
-      ledcWrite(0, (rgb & 0xFF0000)>>(16+dimmer));
-      ledcWrite(1, (rgb & 0x00FF00)>>(8+dimmer));
-      ledcWrite(2, (rgb & 0x0000FF)>>dimmer);
+      ledcWrite(0, (rgb & 0x7F0000)>>(16+dimmer));
+      ledcWrite(1, (rgb & 0x007F00)>>(8+dimmer));
+      ledcWrite(2, (rgb & 0x00007F)>>dimmer);
     }
   }
 
