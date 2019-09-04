@@ -1,8 +1,6 @@
 #ifndef JFlux_h
 #define JFlux_h
 
-// #define DEBUG_FLUX
-
 // Struct flux Stat Stop
 struct FluxData {
   unsigned long logTimeMs;
@@ -39,9 +37,6 @@ public:
     logCounter = interruptCounter;
     for (int i=0;i<2;i++)
        data[i].logTimeMs = millis();
-#ifdef DEBUG_FLUX
-    Serial.printf("JFlux.setup(tot:%.3f, ipl:%f)->irq:%llu DEBUG_FLUX_true \n\r", totWaterM3, implusionPerLitre, interruptCounter);
-#endif
     // We don't use IRQ more stabilitie
     // pinMode(interrupPin, INPUT);
     // pinMode(interrupPin, INPUT_PULLUP);
@@ -64,9 +59,6 @@ public:
       }
     }
     boolean ret = ((state==lastState)?(false):(true));
-#ifdef DEBUG_FLUX
-    if (ret) Serial.printf("JFlux.isChanged(%s %02d:%02d:%02d)->irqCount:%llu \n\r", ((state)?("On  at "):("Off at ")), time->tm_hour, time->tm_min, time->tm_sec ,interruptCounter);
-#endif
     lastState = state;
     return ret;
   }

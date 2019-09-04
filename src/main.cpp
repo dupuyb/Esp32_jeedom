@@ -152,10 +152,10 @@ void actionReset() {
   onChanged = true;
 
 }
-void actionResetTotal() {
+void actionSetTotal(uint64_t val) {
   if (cmd=='d')
-    Serial.println(F("Mode jeeDom actionResetTotal."));
-  //flux.interruptCounter = 0;
+    Serial.println(F("Mode jeeDom actionSetTotal="+val));
+  flux.interruptCounter = val;
   onChanged = true;
 }
 
@@ -173,11 +173,14 @@ String handleJeedom() {
       if (srvval!="") jeedom.config.openDelay = srvval.toFloat(); // SET
       else ret = String(jeedom.config.openDelay);
     }
+    else if (srvcmd=="total") { // Msg cmd=total value=m3 in float   http://192.168.1.19/jeedom?cmd=total&value=33.967
+      if (srvval!="") actionSetTotal( (uint64_t) (srvval.toFloat()*1000.0) );
+      else ret = String( (int)flux.interruptCounter);
+    }
     else if (srvcmd=="action" ) { // Msg cmd=action
       if (srvval=="open") actionOpen();
       else if (srvval=="close") actionClose();
       else if (srvval == "reset") actionReset();
-      else if (srvval=="resetTotal") actionResetTotal();
     }
     if (jeedom.isCcrChanged()) saveConfigJeedom = true;
     if (cmd=='d' || cmd=='f')
@@ -339,14 +342,16 @@ void loop() {
     // if wifi is down, try reconnecting every 60 seconds
     if (wifistat != WL_CONNECTED) {
       wifiLost++;
-      if (wifiLost==1) Serial.printf("%s WiFi connection is lost(%s). wifiCnt:%d jeeErrCnt:%d\n\r",getDate().c_str(), wifiStatus(wifistat), wifiLost, jeedom.getErrorCounter());
+      if (wifiLost==1) Serial.printf("%s WiFi connection is lost(%s). wifiCnt:%d jeeErrCnt:%d localIP:%s\n\r",getDate().c_str(), wifiStatus(wifistat), wifiLost, jeedom.getErrorCounter(), WiFi.localIP().toString().c_str());
       else Serial.printf(".");
       if (wifiLost == 30 ) {
         saveConfigJeedom = true;
       }
+      // if (wifiLost == 50)   WiFi.disconnect();
       if (wifiLost == 60) {
         if (WiFi.reconnect()) {
-          Serial.printf("%s WiFi reconnect OK after 60s (%s). \n\r",getDate().c_str(), wifiStatus(wifiLost));
+          Serial.printf("%s WiFi reconnect OK after 60s (%s). \n\r",getDate().c_str(), wifiStatus(wifistat));
+          wifistat = WL_CONNECTED;
         }
         wifiLost = 0;
       }

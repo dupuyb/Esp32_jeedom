@@ -3,6 +3,8 @@
 
 #include <HTTPClient.h>
 
+const char  JeedomVersion[] PROGMEM = "-=< Jeedom Ver:1.0.1 >=-";
+
 // configuration file jeedom
 struct ConfigJeedom {
   char  host[20];

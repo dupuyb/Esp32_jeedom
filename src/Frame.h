@@ -14,7 +14,7 @@
 #include <WiFi.h>
 #include <DNSServer.h>
 #include <WebServer.h>
- //https://github.com/tzapu/WiFiManager
+ //https://github.com/tzapu/WiFiManager  NOT ASP32 full compatible.
 #include <WiFiManager.h>
 // WebSocket
 #include <WebSocketsServer.h>
@@ -30,7 +30,7 @@
   #define DBXLN(...)
 #endif
 
-const char  FrameVersion[] PROGMEM = "-=< Frame Ver:0.1.4 >=-";
+const char  FrameVersion[] PROGMEM = "-=< Frame Ver:1.0.4 >=-";
 
 // constant HTML Uploader if not defined in FS
 const char HTTP_HEADAL[] PROGMEM = "<!DOCTYPE html><html><head><title>HTML ESP32Dudu</title><meta content='width=device-width' name='viewport'></head>\n";
@@ -49,7 +49,6 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
 
 //Init JSON ArduinoJson 6
 DynamicJsonDocument jsonBuffer(500);
-// JsonObject& JSONRoot   = jsonBuffer.createObject();
 
 // Default value in loadConfiguration function
 struct Config {            // First connexion LAN:esp32dudu IPAddress(192,168,0,1)
@@ -74,11 +73,9 @@ WebSocketsServer webSocket = WebSocketsServer(81);
 
 String JsonConfig() {
   String configjson;
-  // ArduinoJson 5
-  // DynamicJsonDocument<1000> jsonBuffercfg; // Use https://arduinojson.org/assistant/ to compute the capacity.
-  //  JsonObject &rootcfg = jsonBuffercfg.createObject(); // Parse the root object
   // ArduinoJson 6
   DynamicJsonDocument rootcfg(1024);
+
   // Set the values
   rootcfg["HostName"]      = config.HostName;
   JsonArray mac = rootcfg.createNestedArray("MacAddress");
@@ -88,8 +85,8 @@ String JsonConfig() {
   rootcfg["LoginName"]     = config.LoginName;
   rootcfg["LoginPassword"] = config.LoginPassword;
   rootcfg["UseToolsLocal"] = config.UseToolsLocal;
+
   // Transform to string
-  // rootcfg.printTo(configjson);
   serializeJson(rootcfg, configjson);
   return configjson;
 }
@@ -175,12 +172,11 @@ void loadConfiguration(const char *filename, Config &config) {
   size_t size = file.size();
   if (size > 1024)
     DBXLN(F(" Config file too large."));
+
   // allocate buffer for loading config
   std::unique_ptr<char[]> buf(new char[size]);
   file.readBytes(buf.get(), size);
-  // ArduinoJson 5
-  // StaticJsonBuffer<1600> jsonBufferConfig;
-  // JsonObject& rootcfg = jsonBufferConfig.parseObject(buf.get());
+
   // ArduinoJson 6
   DynamicJsonDocument rootcfg(1024);
   auto error = deserializeJson(rootcfg, buf.get());
@@ -195,7 +191,7 @@ void loadConfiguration(const char *filename, Config &config) {
   strlcpy(config.LoginName, rootcfg["LoginName"] | "admin",sizeof(config.LoginName));
   strlcpy(config.LoginPassword, rootcfg["LoginPassword"] | "admin",sizeof(config.LoginPassword));
   config.UseToolsLocal = rootcfg["UseToolsLocal"] | true;
-  if ( /*!rootcfg.success()*/ error) {
+  if ( error ) {
     DBXLN(F("Error config file reading."));
     String ret = saveConfiguration(filename, config);
     DBXLN(ret);
@@ -204,11 +200,14 @@ void loadConfiguration(const char *filename, Config &config) {
 
 //  configModeCallback callback when entering into AP mode
 void configModeCallback (WiFiManager *myWiFiManager) {
-  DBXLN(F("Select AP.."));
-  DBXLN(WiFi.softAPIP().toString());
-  DBXLN(myWiFiManager->getConfigPortalSSID());
-  DBXLN(WiFi.softAPIP());
-  DBXLN(myWiFiManager->getConfigPortalSSID());
+  Serial.println(F("--=== Select A.P. active  (that means Wifi is down) ===---"));
+  Serial.println(WiFi.softAPIP().toString());
+  Serial.println(myWiFiManager->getConfigPortalSSID());
+}
+
+//callback notifying us of the need to save config
+void saveConfigCallback () {
+  Serial.println("Wifi connection has been established.");
 }
 
 // Start WiFiManager
@@ -218,22 +217,39 @@ void startWifiManager() {
   wifiManager.setDebugOutput(false);
 #endif
   esp_base_mac_addr_set(config.MacAddress); // Wifi_STA=mac  wifi_AP=mac+1  BT=mac+2
+  // set AP Static AP
   // wifiManager.setAPStaticIPConfig(IPAddress(192,168,0,1), IPAddress(192,168,1,1), IPAddress(255,255,255,0));
+  //set static ip
+  //   IPAddress _ip,_gw,_sn;
+  //   _ip.fromString(static_ip);
+  //   _gw.fromString(static_gw);
+  //   _sn.fromString(static_sn);
+  //   wifiManager.setSTAStaticIPConfig(_ip, _gw, _sn);
+  // ------------------------
   //Forcer à effacer les donnees WIFI dans l'eprom , permet de changer d'AP à chaque demmarrage ou effacer les infos d'une AP dans la memoire ( a valider , lors du premier lancement  )
   if (config.ResetWifi) wifiManager.resetSettings();
+  //set config save notify callback
+  wifiManager.setSaveConfigCallback(saveConfigCallback);
   //set callback that gets called when connecting to previous WiFi fails, and enters Access Point mode
   wifiManager.setAPCallback(configModeCallback);
   //Recupere les identifiants   ssid et Mot de passe dans l'eprom  et essayes de se connecter
   //Si pas de connexion possible , il demarre un nouveau point d'accés avec comme nom , celui definit dans la commande autoconnect ( ici : AutoconnectAP )
-  wifiManager.autoConnect(config.HostName);
+  // wifiManager.setConnectTimeout(60)
+  if ( !wifiManager.autoConnect(config.HostName) ) {
+    Serial.println("failed to connect and hit timeout.");
+    delay(3000);
+    //reset and try again, or maybe put it to deep sleep
+    ESP.restart();
+    delay(5000);
+  }
   // Wait for connection
-  DBXLN(F("Wait wifi."));
+  Serial.println(F("Waitting Wifi connected..."));
   while (WiFi.status() != WL_CONNECTED) {
     delay(500); DBX(".");
   }
 }
 
-// Start OTA
+// Start OverTheAir firmware uppload
 void startOTA(){
   // ArduinoOTA.setPort(8266); default is 8266
   // Hostname defaults to esp8266-[ChipID]
@@ -445,7 +461,7 @@ void startWebServer(){
     HTTPUpload& upload = server.upload();
     if(upload.status == UPLOAD_FILE_START){
       Serial.printf("Update: %s\n\r", upload.filename.c_str());
-      if(!Update.begin(UPDATE_SIZE_UNKNOWN)){//start with max available size
+      if(!Update.begin(UPDATE_SIZE_UNKNOWN)){ //start with max available size
         Update.printError(Serial);
       }
     } else if(upload.status == UPLOAD_FILE_WRITE){
@@ -524,7 +540,6 @@ void frame_setup() {
   DBXLN(FPSTR(FrameVersion));
   DBX(F("Setup_Frame finished IP:"));
   Serial.println(WiFi.localIP());;
-
 }
 
 // Main loop -----------------------------------------------------------------
