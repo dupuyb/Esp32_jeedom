@@ -37,9 +37,7 @@ public:
     logCounter = interruptCounter;
     for (int i=0;i<2;i++)
        data[i].logTimeMs = millis();
-    // We don't use IRQ more stabilitie
-    // pinMode(interrupPin, INPUT);
-    // pinMode(interrupPin, INPUT_PULLUP);
+    // We don't use IRQ more simple
     interruptVal = digitalRead(interrupPin);
   }
 

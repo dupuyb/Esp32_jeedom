@@ -1,4 +1,3 @@
-#include <Arduino.h>
 // #define DEBUG_FRAME
 #include "Frame.h"
 #include <Adafruit_Sensor.h>
@@ -208,34 +207,6 @@ bool getDHTTemperature(){
   if (temperatureDHT!=t) ret = true;
   temperatureDHT=t;
   return ret;
-}
-
-const char* wifiStatus(int err) {
-  switch (err) {
-    case 0: return "WL_IDLE_STATUS"; break;
-    case 1: return "WL_NO_SSID_AVAIL"; break;
-    case 2: return "WL_SCAN_COMPLETED"; break;
-    case 3: return "WL_CONNECTED"; break;
-    case 4: return "WL_CONNECT_FAILED"; break;
-    case 5: return "WL_CONNECTION_LOST"; break;
-    case 6: return "WL_DISCONNECTED"; break;
-  }
-  String ret = "wifi_Err="+String(err);
-  return ret.c_str();
-}
-
-const char* httpStatus(int err) {
-  switch (err) {
-    case -1  : return "CONNECTION_REFUSED"; break;
-    case -2  : return "SEND_HEADER_FAILED"; break;
-    case -3  : return "SEND_PAYLOAD_FAILED"; break;
-    case -4  : return "NOT_CONNECTED"; break;
-    case -5  : return "CONNECTION_LOST"; break;
-    case -11 : return "READ_TIMEOUT"; break;
-    case 200 : return "OK"; break;
-  }
-  String ret = "http_Code="+String(err);
-  return ret.c_str();
 }
 
 // WatchDog:  wdCounter is set to 0 at (timeinfo.tm_min % 5==0) && (timeinfo.tm_sec == 15)

@@ -1,0 +1,11 @@
+.pio
+.pioenvs
+.piolibdeps
+.clang_complete
+.gcc-flags.json
+.vscode/*
+lib/*
+.gitignore
+.DS_Store
+*.bin
+*.ino
