@@ -8,7 +8,7 @@
 #include "JFlux.h"
 #include "JKeyLedBuz.h"
 
-const char VERSION[] = "1.0.4";
+const char VERSION[] = "1.0.5";
 // Debug macro
 #ifdef DEBUG_MAIN
 #define DBXM(...) Serial.print(__VA_ARGS__)
@@ -271,11 +271,12 @@ void loop() {
       cmd = c;
     } else {
       if (c==13) {
-        if (cmd=='h') { Serial.println(); Serial.println("- Help info: r=reboot i=myip d=debug o=OneShot");}
+        if (cmd=='h') { Serial.println(); Serial.println("- Help info: r=reboot i=myip d=debug o=OneShot s=saveConfig");}
         else if (cmd=='r') { ESP.restart(); }
         else if (cmd=='i') { Serial.printf("Heap:%u IP:%s \n\r",ESP.getFreeHeap(), WiFi.localIP().toString().c_str() ); }
         else if (cmd=='d') { Serial.println("Mode debug active."); }
         else if (cmd=='o') { Serial.println("Mode One shot display."); }
+        else if (cmd=='s') { Serial.println("Mode save config."); jeedom.saveConfigurationJeedom(); cmd=' ';}
         else { Serial.printf("Stop serial: %s \n\r",VERSION); }
       }
     }
