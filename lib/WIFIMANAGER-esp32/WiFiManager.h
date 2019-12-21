@@ -33,7 +33,7 @@ extern "C" {
 #define ESP_getChipId()   ((uint32_t)ESP.getEfuseMac())
 #endif
 
-const char HTTP_HEAD[] PROGMEM            = "<!DOCTYPE html><html lang=\"en\"><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, user-scalable=no\"/><title>{v}</title>";
+const char HTTP_HEAD_START[] PROGMEM            = "<!DOCTYPE html><html lang=\"en\"><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, user-scalable=no\"/><title>{v}</title>";
 const char HTTP_STYLE[] PROGMEM           = "<style>.c{text-align: center;} div,input{padding:5px;font-size:1em;} input{width:95%;} body{text-align: center;font-family:verdana;} button{border:0;border-radius:0.3rem;background-color:#1fa3ec;color:#fff;line-height:2.4rem;font-size:1.2rem;width:100%;} .q{float: right;width: 64px;text-align: right;} .l{background: url(\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAMAAABEpIrGAAAALVBMVEX///8EBwfBwsLw8PAzNjaCg4NTVVUjJiZDRUUUFxdiZGSho6OSk5Pg4eFydHTCjaf3AAAAZElEQVQ4je2NSw7AIAhEBamKn97/uMXEGBvozkWb9C2Zx4xzWykBhFAeYp9gkLyZE0zIMno9n4g19hmdY39scwqVkOXaxph0ZCXQcqxSpgQpONa59wkRDOL93eAXvimwlbPbwwVAegLS1HGfZAAAAABJRU5ErkJggg==\") no-repeat left center;background-size: 1em;}</style>";
 const char HTTP_SCRIPT[] PROGMEM          = "<script>function c(l){document.getElementById('s').value=l.innerText||l.textContent;document.getElementById('p').focus();}</script>";
 const char HTTP_HEAD_END[] PROGMEM        = "</head><body><div style='text-align:left;display:inline-block;min-width:260px;'>";
@@ -100,7 +100,6 @@ class WiFiManager
     //sets timeout for which to attempt connecting, useful if you get a lot of failed connects
     void          setConnectTimeout(unsigned long seconds);
 
-
     void          setDebugOutput(boolean debug);
     //defaults to not showing anything under 8% signal quality if called
     void          setMinimumSignalQuality(int quality = 8);
@@ -131,11 +130,6 @@ class WiFiManager
     std::unique_ptr<WebServer>        server;
 #endif
 
-    //const int     WM_DONE                 = 0;
-    //const int     WM_WAIT                 = 10;
-
-    //const String  HTTP_HEAD = "<!DOCTYPE html><html lang=\"en\"><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/><title>{v}</title>";
-
     void          setupConfigPortal();
     void          startWPS();
 
@@ -159,11 +153,9 @@ class WiFiManager
     boolean       _removeDuplicateAPs     = true;
     boolean       _shouldBreakAfterConfig = false;
     boolean       _tryWPS                 = false;
+    boolean       _autoConnect            = true;
 
     const char*   _customHeadElement      = "";
-
-    //String        getEEPROMString(int start, int len);
-    //void          setEEPROMString(int start, int len, String string);
 
     int           status = WL_IDLE_STATUS;
     int           connectWifi(String ssid, String pass);

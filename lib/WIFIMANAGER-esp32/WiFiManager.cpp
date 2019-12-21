@@ -8,6 +8,7 @@
    https://github.com/esp8266/Arduino/tree/master/libraries/DNSServer/examples/CaptivePortalAdvanced
    Built by AlexT https://github.com/tzapu
    Licensed under MIT license
+   Append _autoConnect in resetSettings by dupuyb.
  **************************************************************/
 
 #include "WiFiManager.h"
@@ -17,7 +18,6 @@ WiFiManagerParameter::WiFiManagerParameter(const char *custom) {
   _placeholder = NULL;
   _length = 0;
   _value = NULL;
-
   _customHTML = custom;
 }
 
@@ -40,7 +40,6 @@ void WiFiManagerParameter::init(const char *id, const char *placeholder, const c
   if (defaultValue != NULL) {
     strncpy(_value, defaultValue, length);
   }
-
   _customHTML = custom;
 }
 
@@ -64,13 +63,12 @@ WiFiManager::WiFiManager() {
 }
 
 void WiFiManager::addParameter(WiFiManagerParameter *p) {
-  if(_paramsCount + 1 > WIFI_MANAGER_MAX_PARAMS)
-  {
+  if(_paramsCount + 1 > WIFI_MANAGER_MAX_PARAMS) {
     //Max parameters exceeded!
-	DEBUG_WM("WIFI_MANAGER_MAX_PARAMS exceeded, increase number (in WiFiManager.h) before adding more parameters!");
-	DEBUG_WM("Skipping parameter with ID:");
-	DEBUG_WM(p->getID());
-	return;
+	  DEBUG_WM("WIFI_MANAGER_MAX_PARAMS exceeded, increase number (in WiFiManager.h) before adding more parameters!");
+  	DEBUG_WM("Skipping parameter with ID:");
+	  DEBUG_WM(p->getID());
+	  return;
   }
   _params[_paramsCount] = p;
   _paramsCount++;
@@ -140,24 +138,22 @@ boolean WiFiManager::autoConnect() {
   return autoConnect(ssid.c_str(), NULL);
 }
 
-boolean WiFiManager::autoConnect(char const *apName, char const *apPassword) {
+boolean WiFiManager::autoConnect( char const *apName, char const *apPassword) {
   DEBUG_WM(F(""));
   DEBUG_WM(F("AutoConnect"));
 
-  // read eeprom for ssid and pass
-  //String ssid = getSSID();
-  //String pass = getPassword();
-
-  // attempt to connect; should it fail, fall back to AP
-  WiFi.mode(WIFI_STA);
-
-  if (connectWifi("", "") == WL_CONNECTED)   {
-    DEBUG_WM(F("IP Address:"));
-    DEBUG_WM(WiFi.localIP());
-    //connected
-    return true;
+  if (_autoConnect) {
+    // attempt to connect; should it fail, fall back to AP
+    WiFi.mode(WIFI_STA);
+    if (connectWifi("", "") == WL_CONNECTED)   {
+      DEBUG_WM(F("IP Address:"));
+      DEBUG_WM(WiFi.localIP());
+      //connected
+      return true;
+    }
+  } else {
+    _autoConnect = true;
   }
-
   return startConfigPortal(apName, apPassword);
 }
 
@@ -356,7 +352,8 @@ void WiFiManager::resetSettings() {
   // https://github.com/espressif/arduino-esp32/issues/400
   // For now, use "make erase_flash".
   WiFi.disconnect(true);
-  //delay(200);
+  // Force Portail at next autoConnect
+  _autoConnect = false;
 }
 void WiFiManager::setTimeout(unsigned long seconds) {
   setConfigPortalTimeout(seconds);
@@ -401,7 +398,7 @@ void WiFiManager::handleRoot() {
     return;
   }
 
-  String page = FPSTR(HTTP_HEAD);
+  String page = FPSTR(HTTP_HEAD_START);
   page.replace("{v}", "Options");
   page += FPSTR(HTTP_SCRIPT);
   page += FPSTR(HTTP_STYLE);
@@ -422,7 +419,7 @@ void WiFiManager::handleRoot() {
 /** Wifi config page handler */
 void WiFiManager::handleWifi(boolean scan) {
 
-  String page = FPSTR(HTTP_HEAD);
+  String page = FPSTR(HTTP_HEAD_START);
   page.replace("{v}", "Config ESP");
   page += FPSTR(HTTP_SCRIPT);
   page += FPSTR(HTTP_STYLE);
@@ -453,11 +450,6 @@ void WiFiManager::handleWifi(boolean scan) {
           }
         }
       }
-
-      /*std::sort(indices, indices + n, [](const int & a, const int & b) -> bool
-        {
-        return WiFi.RSSI(a) > WiFi.RSSI(b);
-        });*/
 
       // remove duplicates ( must be RSSI sorted )
       if (_removeDuplicateAPs) {
@@ -621,7 +613,7 @@ void WiFiManager::handleWifiSave() {
     optionalIPFromString(&_sta_static_sn, sn.c_str());
   }
 
-  String page = FPSTR(HTTP_HEAD);
+  String page = FPSTR(HTTP_HEAD_START);
   page.replace("{v}", "Credentials Saved");
   page += FPSTR(HTTP_SCRIPT);
   page += FPSTR(HTTP_STYLE);
@@ -642,7 +634,7 @@ void WiFiManager::handleWifiSave() {
 void WiFiManager::handleInfo() {
   DEBUG_WM(F("Info"));
 
-  String page = FPSTR(HTTP_HEAD);
+  String page = FPSTR(HTTP_HEAD_START);
   page.replace("{v}", "Info");
   page += FPSTR(HTTP_SCRIPT);
   page += FPSTR(HTTP_STYLE);
@@ -693,7 +685,7 @@ void WiFiManager::handleInfo() {
 void WiFiManager::handleReset() {
   DEBUG_WM(F("Reset"));
 
-  String page = FPSTR(HTTP_HEAD);
+  String page = FPSTR(HTTP_HEAD_START);
   page.replace("{v}", "Info");
   page += FPSTR(HTTP_SCRIPT);
   page += FPSTR(HTTP_STYLE);

@@ -4,14 +4,13 @@
 class JKeyLedBuz {
 
 public:
-  JKeyLedBuz(int pr, int pg, int pb, int bu, int bd, int pv, int pp, int pbz){
+  JKeyLedBuz(int pr, int pg, int pb, int bu, int bd, int pv, int pbz){
     pinBtUp  = bu;
     pinBtDn  = bd;
     pinRed   = pr;
     pinGreen = pg;
     pinBlue  = pb;
     pinValve = pv;
-    pinPower = pp;
     pinBuzzer = pbz;
     ledcSetup(0, 1500, 8); // Led channel 0 Red
     ledcSetup(1, 1500, 8); // Led channel 1 Green
@@ -25,9 +24,7 @@ public:
     pinMode(pinBtUp, INPUT_PULLUP); // set button pin as input
     pinMode(pinBtDn, INPUT_PULLUP); // set button pin as input#ifndef JFlux_h
     pinMode(pinValve, OUTPUT);      // Relay Valve
-    pinMode(pinPower, OUTPUT);
     digitalWrite(pinValve, HIGH);    // initial state
-    digitalWrite(pinPower, HIGH);
     pinMode(pinBuzzer, OUTPUT); // Buzzer
 
   }
@@ -114,7 +111,6 @@ public:
   uint8_t pinGreen;
   uint8_t pinBlue;
   uint8_t pinValve;
-  uint8_t pinPower;
   uint8_t pinBuzzer;
   boolean valveStat = false;
   boolean flip = true;

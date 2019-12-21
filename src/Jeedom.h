@@ -3,7 +3,7 @@
 
 #include <HTTPClient.h>
 
-const char  JeedomVersion[] PROGMEM = "-=< Jeedom Ver:1.0.1 >=-";
+const char  JeedomVersion[] PROGMEM = "1.1.1";
 
 // configuration file jeedom
 struct ConfigJeedom {
@@ -13,6 +13,7 @@ struct ConfigJeedom {
   float fluxReference; // impulsion per liter default 2
   float openDelay; // Delay of flow is continus
   float waterM3; // total counter initial value default 0
+  bool valveOpen; // true is valve is open 
 };
 
 class Jeedom {
@@ -25,13 +26,9 @@ public:
   boolean saveConfigurationJeedom() {
     File file = SPIFFS.open(fileconfigjeedom, "w");
     if (!file) {
-      // Serial.println(F("Can't write in Configuration Jeedom file."));
        return false;
     }
     String cfJeedomjson;
-    // ArduinoJson 5
-    // StaticJsonBuffer<500> jsonBuffercfg();
-    // JsonObject &rootcfg = jsonBuffercfg.createObject();
     // ArduinoJson 6
     DynamicJsonDocument rootcfg(500);
     rootcfg["host"] = config.host;
@@ -40,15 +37,13 @@ public:
     rootcfg["fluxReference"] = config.fluxReference;
     rootcfg["openDelay"] = config.openDelay;
     rootcfg["waterM3"] = config.waterM3;
-    // ArduinoJson 5
-    // rootcfg.printTo(cfJeedomjson);
+    rootcfg["valveOpen"] = config.valveOpen; 
     // ArduinoJson 6
     serializeJson(rootcfg, cfJeedomjson);
     file.print(cfJeedomjson);
     file.close();
     ccrConfig = getCcrConfig();
     return true;
-  //  Serial.println(F("Configuration Jeedom file has been saved."));
   }
 
   void loadConfigurationJeedom() {
@@ -60,9 +55,6 @@ public:
       size_t size = file.size();
       std::unique_ptr<char[]> buf(new char[size]);
       file.readBytes(buf.get(), size);
-      // ArduinoJson 5
-      // StaticJsonBuffer<600> jsonBufferConfigJeedom;
-      // JsonObject& rootcfg = jsonBufferConfigJeedom.parseObject(buf.get());
       // ArduinoJson 6
       DynamicJsonDocument rootcfg(1024);
       auto error = deserializeJson(rootcfg, buf.get());
@@ -72,7 +64,8 @@ public:
       config.fluxReference = rootcfg["fluxReference"] | 1.0; // default 2 pulse per liter
       config.openDelay = rootcfg["openDelay"] | 15.0; // default 15 minutes
       config.waterM3 = rootcfg["waterM3"] | 0.000; // Read local counter
-      if (error /*!rootcfg.success()*/) saveConfigurationJeedom();
+      config.valveOpen = rootcfg["valveOpen"] | true; // vslvr state
+      if (error)  saveConfigurationJeedom();
     }
     ccrConfig = getCcrConfig();
   }

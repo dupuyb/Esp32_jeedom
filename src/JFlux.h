@@ -1,11 +1,6 @@
 #ifndef JFlux_h
 #define JFlux_h
 
-// Struct flux Stat Stop
-struct FluxData {
-  unsigned long logTimeMs;
-};
-
 class JFlux {
 public:
 
@@ -17,41 +12,54 @@ public:
   // Better than irq at 6-7 l/m irq signal is like:
   // _-------_--------_----- 1,6sec. Low and 7sec. High
   // New irq AND time > 0.5 sec
+  uint8_t counterLo = 0;
   void loop() {
-    unsigned long now = millis();
-    int val = digitalRead(interrupPin);
-    // Evaluation every 500 milli-seconds
-    if ( abs(now-data[1].logTimeMs) > 500 && interruptVal != val ) {
-      if (val==0) {
-        interruptCounter++;
-        data[0].logTimeMs = data[1].logTimeMs;
-        data[1].logTimeMs = now;
-      }
-      interruptVal = val;
-    }
-  }
+     unsigned long now = millis();
+     int val = digitalRead(interrupPin);
+     // Irq correct if low more than 1 sec
+     if (val==1) {
+       counterLo = 0;
+       timeMs[0] = now;
+     } else {
+       // Detect edge 1->0
+       if (timeMs[0]==0) return;
+       counterLo ++;
+       timeMs[1] = now;
+       unsigned long ecartMs = abs(timeMs[1] - timeMs[0]);
+       if ( ecartMs > 1000 && counterLo > 5) {
+          // Serial.printf("Flux.loop interruptCounter=%lu at:%lu ms\n\r", interruptCounter, now);
+          interruptCounter++;
+          timeMs[0] = 0;
+          counterLo = 0;
+       }
+     }
+   }
 
   void setup(float totWaterM3, float implusionPerLitre) {
     // Default total counter
     interruptCounter = (uint64_t)(totWaterM3 * 1000.0 * (float)implusionPerLitre); // last value recorded in jeedom
     logCounter = interruptCounter;
-    for (int i=0;i<2;i++)
-       data[i].logTimeMs = millis();
-    // We don't use IRQ more simple
-    interruptVal = digitalRead(interrupPin);
+    for (int i=0;i<4;i++)
+      timeMs[i] = millis();
+    // Serial.printf("Flux.setup interruptCounter=%lu at:%lu ms\n\r", interruptCounter, timeMs[0]);
   }
 
   // _-------_--------__----- 1,6-1,7 sec Low 7-9 sec High
   boolean isChanged(struct tm *time, float implusionPerLitre) {
-    unsigned long intervalNow = mktime(time) - logTimeEpoc;
-    if (logCounter != interruptCounter) {
+    unsigned long now = millis();
+    unsigned long intervalNow = abs( now - timeMs[1] );
+    if (logCounter != interruptCounter) { 
       logCounter = interruptCounter;
-      logTimeEpoc = mktime(time);
-      long ecartMs = abs(data[1].logTimeMs - data[0].logTimeMs);
-      if ( ecartMs > 0 ) literPerMinute = 60000.0 / (float)ecartMs;
+      // Compute liter.minute
+      timeMs[2] = timeMs[3];
+      timeMs[3] = now;
+      unsigned long ecartMs = abs(timeMs[3] - timeMs[2]);
+      if (ecartMs>0)
+        literPerMinute = 60000.0 / (float)ecartMs;    
+    //  Serial.printf("Flux.isChanged interruptCounter=%lu at:%lu ms liter=%f l.m ecartMs=%lu ms timeMs[2]=%lu timeMs[3]=%lu \n\r", interruptCounter, now, literPerMinute, ecartMs,timeMs[2],timeMs[3]);
       state = true;
     } else {
-      if ( intervalNow > 30 ) {   // 30 seconds without any changing
+      if ( intervalNow > 30000 ) {   // 30 seconds without any changing
         literPerMinute = 0.0;
         state = false;
       }
@@ -63,15 +71,13 @@ public:
 
   boolean  state = false;
   float    literPerMinute = 0;
-  uint64_t interruptCounter = 0;
+  unsigned long interruptCounter;
 
 private :
   int interrupPin; // pin
-  int interruptVal; // value
-  FluxData data[2];
+  unsigned long timeMs[4];
   boolean lastState = false;
   uint64_t logCounter = 0; // Last implusionPerLitre at every seconds
-  unsigned long logTimeEpoc = 0;
 };
 
 #endif
