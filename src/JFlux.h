@@ -15,9 +15,9 @@ public:
   uint8_t counterLo = 0;
   void loop() {
      unsigned long now = millis();
-     int val = digitalRead(interrupPin);
+     valCnt = digitalRead(interrupPin);
      // Irq correct if low more than 1 sec
-     if (val==1) {
+     if (valCnt==1) {
        counterLo = 0;
        timeMs[0] = now;
      } else {
@@ -72,6 +72,7 @@ public:
   boolean  state = false;
   float    literPerMinute = 0;
   unsigned long interruptCounter;
+  int      valCnt;
 
 private :
   int interrupPin; // pin

@@ -1,6 +1,10 @@
+
 #include <U8g2lib.h>
-//#define DEBUG_FRAME
-#include "Frame.h"
+// #define DEBUG_FRAME
+// Frame wifi
+#include "FrameWeb.h"
+FrameWeb frame;
+
 #include <Adafruit_Sensor.h>
 #include <time.h>
 #include "DHT.h"
@@ -9,9 +13,9 @@
 #include "JFlux.h"
 #include "JKeyLedBuz.h"
 
-const char VERSION[] = "2.1.3";
+const char VERSION[] = "2.3.5"; // User FrameWeb class insidemof Frame.h
 // Debug macro
-//#define DEBUG_MAIN
+// #define DEBUG_MAIN
 #ifdef DEBUG_MAIN
 #define DBXM(...) {Serial.print("[M]");Serial.print(__VA_ARGS__);}
 #define DBXMLN(...) {Serial.print("[M]");Serial.println(__VA_ARGS__);}
@@ -44,38 +48,15 @@ U8G2_SSD1306_128X32_UNIVISION_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE, 
   OLEDS(); \
 }
 
-const uint8_t wifi_1[] = {
-   0xfe, 0x1f, 0x01, 0x20, 0xf9, 0x27, 0x0d, 0x2c, 0xe3, 0x31, 0x19, 0x26,
-   0xc5, 0x28, 0x31, 0x23, 0x09, 0x24, 0xc1, 0x20, 0xe1, 0x21, 0xe1, 0x21,
-   0x01, 0x20, 0xfe, 0x1f};
-const uint8_t wifi_0[] = {
-   0xfe, 0x1f, 0x01, 0x20, 0x01, 0x20, 0x01, 0x20, 0x01, 0x20, 0x01, 0x20,
-   0x01, 0x20, 0x01, 0x20, 0x01, 0x20, 0xc1, 0x20, 0xe1, 0x21, 0xe1, 0x21,
-   0x01, 0x20, 0xfe, 0x1f };
-const uint8_t jeedom_0[] = {
-     0xfe, 0x1f, 0x01, 0x20, 0xc5, 0x2c, 0xed, 0x2d, 0x19, 0x2b, 0xb1, 0x26,
-   0x6d, 0x2d, 0xd5, 0x2a, 0xa9, 0x25, 0x79, 0x23, 0xe9, 0x26, 0xe9, 0x2d,
-   0x01, 0x20, 0xfe, 0x1f };
-const uint8_t jeedom_1[] = {
-0xfe, 0x1f, 0x01, 0x20, 0xc1, 0x2c, 0xe1, 0x2d, 0x31, 0x2b, 0xd9, 0x26,
-   0xed, 0x2d, 0xf5, 0x2b, 0xe9, 0x27, 0xf9, 0x27, 0xe9, 0x27, 0xe9, 0x23,
-   0x01, 0x20, 0xfe, 0x1f };
-const uint8_t flame_1[] = {  
-   0xfe, 0x1f, 0x01, 0x20, 0x81, 0x21, 0xc1, 0x20, 0xc1, 0x2d, 0x99, 0x2d,
-   0xb9, 0x27, 0xf1, 0x23, 0xf9, 0x26, 0x4d, 0x2c, 0x9d, 0x26, 0x39, 0x23,
-   0x01, 0x20, 0xfe, 0x1f };
-const uint8_t flame_0[] = {  
-   0xfe, 0x1f, 0x01, 0x20, 0x01, 0x20, 0x99, 0x2d, 0x55, 0x22, 0xd5, 0x26,
-   0x55, 0x22, 0x55, 0x22, 0x4d, 0x22, 0x01, 0x20, 0x01, 0x20, 0xa9, 0x2a,
-   0x01, 0x20, 0xfe, 0x1f };
-const uint8_t valve_1[] = {  
-   0xfe, 0x1f, 0x01, 0x20, 0x81, 0x2e, 0xc1, 0x23, 0x41, 0x21, 0xe1, 0x23,
-   0x1d, 0x2c, 0x03, 0x30, 0x01, 0x20, 0x03, 0x30, 0x3d, 0x2e, 0xc1, 0x21,
-   0x01, 0x20, 0xfe, 0x1f };
-const uint8_t valve_0[] = {  
-      0xfe, 0x1f, 0x01, 0x20, 0x81, 0x2e, 0xc1, 0x23, 0xc1, 0x21, 0xe1, 0x23,
-   0xfd, 0x2f, 0xff, 0x3f, 0xff, 0x3f, 0xff, 0x3f, 0xfd, 0x2f, 0xc1, 0x21,
-   0x01, 0x20, 0xfe, 0x1f };
+// Define Icons
+const uint8_t wifi_1  [] PROGMEM = { 0xfe, 0x1f, 0x01, 0x20, 0xf9, 0x27, 0x0d, 0x2c, 0xe3, 0x31, 0x19, 0x26, 0xc5, 0x28, 0x31, 0x23, 0x09, 0x24, 0xc1, 0x20, 0xe1, 0x21, 0xe1, 0x21, 0x01, 0x20, 0xfe, 0x1f };
+const uint8_t wifi_0  [] PROGMEM = { 0xfe, 0x1f, 0x01, 0x20, 0x01, 0x20, 0x01, 0x20, 0x01, 0x20, 0x01, 0x20, 0x01, 0x20, 0x01, 0x20, 0x01, 0x20, 0xc1, 0x20, 0xe1, 0x21, 0xe1, 0x21, 0x01, 0x20, 0xfe, 0x1f };
+const uint8_t jeedom_0[] PROGMEM = { 0xfe, 0x1f, 0x01, 0x20, 0xc5, 0x2c, 0xed, 0x2d, 0x19, 0x2b, 0xb1, 0x26, 0x6d, 0x2d, 0xd5, 0x2a, 0xa9, 0x25, 0x79, 0x23, 0xe9, 0x26, 0xe9, 0x2d, 0x01, 0x20, 0xfe, 0x1f };
+const uint8_t jeedom_1[] PROGMEM = { 0xfe, 0x1f, 0x01, 0x20, 0xc1, 0x2c, 0xe1, 0x2d, 0x31, 0x2b, 0xd9, 0x26, 0xed, 0x2d, 0xf5, 0x2b, 0xe9, 0x27, 0xf9, 0x27, 0xe9, 0x27, 0xe9, 0x23, 0x01, 0x20, 0xfe, 0x1f };
+const uint8_t flame_1 [] PROGMEM = { 0xfe, 0x1f, 0x01, 0x20, 0x81, 0x21, 0xc1, 0x20, 0xc1, 0x2d, 0x99, 0x2d, 0xb9, 0x27, 0xf1, 0x23, 0xf9, 0x26, 0x4d, 0x2c, 0x9d, 0x26, 0x39, 0x23, 0x01, 0x20, 0xfe, 0x1f };
+const uint8_t flame_0 [] PROGMEM = { 0xfe, 0x1f, 0x01, 0x20, 0x01, 0x20, 0x99, 0x2d, 0x55, 0x22, 0xd5, 0x26, 0x55, 0x22, 0x55, 0x22, 0x4d, 0x22, 0x01, 0x20, 0x01, 0x20, 0xa9, 0x2a, 0x01, 0x20, 0xfe, 0x1f };
+const uint8_t valve_1 [] PROGMEM = { 0xfe, 0x1f, 0x01, 0x20, 0x81, 0x2e, 0xc1, 0x23, 0x41, 0x21, 0xe1, 0x23, 0x1d, 0x2c, 0x03, 0x30, 0x01, 0x20, 0x03, 0x30, 0x3d, 0x2e, 0xc1, 0x21, 0x01, 0x20, 0xfe, 0x1f };
+const uint8_t valve_0 [] PROGMEM = { 0xfe, 0x1f, 0x01, 0x20, 0x81, 0x2e, 0xc1, 0x23, 0xc1, 0x21, 0xe1, 0x23, 0xfd, 0x2f, 0xff, 0x3f, 0xff, 0x3f, 0xff, 0x3f, 0xfd, 0x2f, 0xc1, 0x21, 0x01, 0x20, 0xfe, 0x1f };
 
 // Serial command
 int8_t cmd;
@@ -89,27 +70,36 @@ const char* ntpServer        = "pool.ntp.org";
 
 // Time HH:MM.ss
 String getTime() {
-  char temp[10];
-  snprintf(temp, 20, "%02d:%02d:%02d", timeinfo.tm_hour,timeinfo.tm_min,timeinfo.tm_sec );
+  static char temp[10];
+  snprintf(temp, 10, "%02d:%02d:%02d", timeinfo.tm_hour,timeinfo.tm_min,timeinfo.tm_sec );
   return String(temp);
 }
 
 String rebootTime;
 // Date as europeen format
-String getDate(bool sh = false){
-  char temp[20];
-  if (sh)
-    snprintf(temp, 20, "%02d/%02d/%04d",
+String getDate(int sh = -1){
+  static char temp[20];
+  switch (sh) {
+  case 0: 
+      snprintf(temp, 20, "%02d/%02d/%04d",
            timeinfo.tm_mday, (timeinfo.tm_mon+1), (1900+timeinfo.tm_year) );
-  else
-    snprintf(temp, 20, "%02d/%02d/%04d %02d:%02d:%02d",
+      break;
+  case 1:
+     snprintf(temp, 20, "%02d/%02d/%02d %02d:%02d",
+           timeinfo.tm_mday, (timeinfo.tm_mon+1), (timeinfo.tm_year-100),  timeinfo.tm_hour,timeinfo.tm_min );
+      break;
+  default:
+     snprintf(temp, 20, "%02d/%02d/%04d %02d:%02d:%02d",
            timeinfo.tm_mday, (timeinfo.tm_mon+1), (1900+timeinfo.tm_year),  timeinfo.tm_hour,timeinfo.tm_min,timeinfo.tm_sec );
+      break;
+  }
   return String(temp);
 }
 
 // DHT22 pin 13
 #define pinDHT     13 // GPIO13
-DHT dht(pinDHT, DHT22, 20);
+#define pinDHTpwd  21 // GPIO21 //! put mosFET 
+DHT dht(pinDHT, DHT22); //! BUG after few day sensor frozen....
 float temperatureDHT = -1;
 float humidityDHT = -1;
 
@@ -128,8 +118,8 @@ JFlux flux(interruptPin);
 // Relay Valve Button LEd pins
 #define pinVD 14 // Valve Direction
 #define pinBz 18 // Buzzer
-#define pinU 5  // Button Up
-#define pinD 17 // Button Down
+#define pinU  05 // Button Up
+#define pinD  17 // Button Down
 
 #define pinR 16 // Led Red
 #define pinG 04 // Led Green
@@ -145,16 +135,16 @@ long previousMillis = 0;
 Jeedom jeedom("/cfJeedom.json");
 bool saveConfigJeedom = false;
 // Devices from virtual jeedom
-const int idTemp = 1784;
-const int idHumi = 1785;
-const int idFlam = 1786;
-const int idPower = 1816;
-const int idDebitA = 1811;
-const int idDebitT = 1812;
-const int idDebitD = 1823;
-const int idValve = 1825;
+const int idTemp   = 1784;
+const int idHumi   = 1785;
+const int idFlam   = 1786;
+const int idPower  = 1816;
+const int idDebitA = 1811; // l/m
+const int idDebitT = 1812; // Total m3
+const int idDebitD = 1823; // Flux On/Off
+const int idValve  = 1825;
 bool onChanged = true;
-#define JEEDOM_DISLABED
+// #define JEEDOM_DISLABED
 #ifdef JEEDOM_DISLABED
 #define SEND2JEEDOM(na,wc,rj,id,va) 
 #else
@@ -168,6 +158,10 @@ bool onChanged = true;
 }
 #endif
 
+// Frame option
+void configModeCallback(WiFiManager *myWiFiManager) {}
+void saveConfigCallback() {}
+
 // Test webscoket
 uint32_t value;
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) {
@@ -177,10 +171,10 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
       break;
     case WStype_CONNECTED:
     {
-      IPAddress ip = webSocket.remoteIP(num);
+      IPAddress ip = frame.webSocket.remoteIP(num);
       DBXMF("[%u] Connected from %d.%d.%d.%d url: [%s]", num, ip[0], ip[1], ip[2], ip[3], payload);
       String ReponseHTML = String(value);
-      webSocket.sendTXT(num, ReponseHTML);
+      frame.webSocket.sendTXT(num, ReponseHTML);
     }
       break;
     case WStype_TEXT:
@@ -190,7 +184,7 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
       if (payload[0] == '#')
         value = (uint32_t) strtol((const char *) &payload[1], NULL, 16);   // decode sendValue
       String ReponseHTML = String(value);
-      webSocket.sendTXT(num, ReponseHTML);
+      frame.webSocket.sendTXT(num, ReponseHTML);
     }
       break;
     case WStype_BIN:
@@ -235,11 +229,14 @@ void actionSetTotal(uint64_t val) {
   onChanged = true;
 }
 
-// received argument from Jeedom script via virutal
+// -------- Web transformation into Get Set functions ------------- 
+#include "eau.h"
+/*
+//! received argument from Jeedom script via virutal
 String handleJeedom() {
   String ret ="jeedom_ok";
-  String srvcmd = server.arg("cmd");
-  String srvval = server.arg("value");
+  String srvcmd = frame.server.arg("cmd");
+  String srvval = frame.server.arg("value");
   if (srvcmd!="") {
     if (srvcmd=="reference" ) { // Msg cmd=reference
       if (srvval!="") jeedom.config.fluxReference = srvval.toFloat(); // SET
@@ -249,7 +246,7 @@ String handleJeedom() {
       if (srvval!="") jeedom.config.openDelay = srvval.toFloat(); // SET
       else ret = String(jeedom.config.openDelay);
     }
-    else if (srvcmd=="total") { // Msg cmd=total value=m3 in float   http://192.168.1.19/jeedom?cmd=total&value=33.967
+    else if (srvcmd=="total") { // Msg cmd=total value=m3 in float   http://192.168.1.19/jeedom?cmd=total&value=61.145
       if (srvval!="") actionSetTotal( (uint64_t) (srvval.toFloat()*1000.0) );
       else ret = String( (int)flux.interruptCounter);
     }
@@ -264,39 +261,78 @@ String handleJeedom() {
   }
   return ret;
 }
-
+*/
 bool getDHTHumidity(){
   bool ret = false;
-  float h = dht.readHumidity();
+  float h = dht.readHumidity(true);
   if (isnan(h)) return ret;
   if (humidityDHT!=h) ret = true;
   humidityDHT=h;
   return ret;
 }
 
-bool getDHTTemperature(){
-  bool ret = false;
-  float t = dht.readTemperature();
+int getDHTTemperature(){
+  int ret = 0;
+  float t = dht.readTemperature(true);
   if (isnan(t)) {
     DBXMF("%s DHT ERROR I2C RET:%d \n\r", getDate().c_str(), ret);
-    return ret;
+    return -1;
   }
-  if (temperatureDHT!=t) ret = true;
+  if (temperatureDHT!=t) ret = 1;
   temperatureDHT=t;
   return ret;
 }
 
+int retJeedom = HTTP_CODE_OK;
+void setDsp() {
+    // Set Oled dsp
+    OLEDC();
+    // Icons
+    if (wifiLost==0) u8g2.drawXBMP(0,0,14,14,wifi_1);
+    else u8g2.drawXBMP(0,0,14,14,wifi_0);
+    if (retJeedom == HTTP_CODE_OK) u8g2.drawXBMP(16,0,14,14,jeedom_1);
+    else u8g2.drawXBMP(16,0,14,14,jeedom_0);
+    if (flame.state) u8g2.drawXBMP(32,0,14,14,flame_1);
+    else u8g2.drawXBMP(32,0,14,14,flame_0);
+    if (isValveClosed) u8g2.drawXBMP(48,0,14,14,valve_0);
+    else u8g2.drawXBMP(48,0,14,14,valve_1);  
+    // Symbole
+    u8g2.setFont(u8g2_font_unifont_t_symbols);
+    // Liter
+    // if (flux.interruptCounter%1)  u8g2.drawUTF8(65, 14, "☐"); 
+    // else u8g2.drawUTF8(65, 14, "☑");
+    // Text
+    u8g2.setFont(u8g2_font_7x14_tf);
+    OLEDF( 73,14, "%s", getTime().c_str());
+    switch (cntOled) {
+      case 0: OLEDF( 0, 31, "Temp:%2.0f°C Hum:%2.0f%%", temperatureDHT, humidityDHT); break;
+      case 1: OLEDF( 0, 31, "Eau: %.3f m3", jeedom.config.waterM3); break;
+      case 2: OLEDF( 0, 31, "Vanne: %s", (isValveClosed)?("Fermé"):("Ouverte") ); break;
+      case 3: OLEDF( 0, 31, "Flamme: %s", (flame.state)?("Allumée"):("Eteinte") ); break;
+      case 4: OLEDF( 0, 31, "Wifi:%s", WiFi.localIP().toString().c_str() ); break;
+      case 5: OLEDF( 0, 31, "Mac: %s", WiFi.macAddress().c_str() ); break;
+      case 6: OLEDF( 0, 31, "Jeedom: %s", ((retJeedom == HTTP_CODE_OK)?("est OK"):("Erreurs")) ); break;
+      case 7: OLEDF( 0, 31, "Date: %s", getDate(0).c_str() ); break;
+      case 8: OLEDF( 0, 31, "Version: %s", VERSION ); break;
+      case 9: OLEDF( 0, 31, "Raz:%s", rebootTime.c_str() ); break;
+      default: cntOled=0; break; 
+    }
+    OLEDS();
+    if ( (timeinfo.tm_sec % 3)==0 ) {
+       cntOled++;
+    }
+}
 // WatchDog:  wdCounter is set to 0 at (timeinfo.tm_min % 5==0) && (timeinfo.tm_sec == 15)
 //            otherwise after 15 minutes ESP is restarted
 uint32_t wdCounter = 0;
-/*
 void watchdog(void *pvParameter) {
   while (1) {
-    vTaskDelay(5000/portTICK_RATE_MS);
+    vTaskDelay(1000/portTICK_RATE_MS);
+    // setDsp();
     wdCounter++;
-    if (wdCounter > 180) {
-      // We have a problem no connection if crash ....
-      if (wdCounter == 181 ) {
+    if (wdCounter > 400) {
+      // We have a problem no connection if crash or waitting 
+      if (wdCounter == 401 ) {
         DBXMF("%s Wifi.Status=%s       \r\n",  getDate().c_str(), wifiStatus(WiFi.status()) );
         DBXMF("%s wdCounter:%d REBOOT...\n\r", getDate().c_str(), wdCounter);
       } else {
@@ -307,7 +343,6 @@ void watchdog(void *pvParameter) {
     }
   }
 }
-*/
 
 //  configModeCallback callback when entering into AP mode
 void myConfigModeCallback (WiFiManager *myWiFiManager) {
@@ -320,28 +355,38 @@ void myConfigModeCallback (WiFiManager *myWiFiManager) {
 }
 
 void setup() {
+#ifdef DEBUG_MAIN
   Serial.begin(115200);
-  DBXMF("Start setup Ver:%s",VERSION);
+#endif
+  DBXMF("Start setup Ver:%s\n\r",VERSION);
   // Start Oled 128x32
   u8g2.begin();
   OLEDC();
   u8g2.setFont(u8g2_font_10x20_tf);
   OLEDF( 0, 14, "Survey:%s", VERSION);
   OLEDS();
-  delay(2000);
-  // Start my WatchDog
-  // xTaskCreate(&watchdog, "wd task", 2048, NULL, 5, NULL);
   // Set pin mode  I/O Directions
   pinMode(EspLedBlue, OUTPUT);     // Led is BLUE at statup
   digitalWrite(EspLedBlue, HIGH);  // After 5 seconds blinking indicate WiFI ids OK
+  pinMode(pinDHTpwd, OUTPUT); 
+  digitalWrite(pinDHTpwd, HIGH);   // POWER DHT On
+  delay(2000);
+   // Start my WatchDog olso used to reset AP evey 15m (Some time after general cut off Wifi host is started after Eps)
+  xTaskCreate(&watchdog, "wd task", 2048, NULL, 5, NULL);
   keyLedBuz.rgb = 0xFFFFFF; // Wait Wifi
   // Start framework
-  frame_setup(   myConfigModeCallback );
+  frame.setup( myConfigModeCallback );
   keyLedBuz.rgb = 0x777777;  // WifiOK
-  // Start jeedom_ok
+  // Start jeedom_ok ---> Jedom command Return jeedom_ok
   jeedom.setup();
-  server.on("/jeedom", [](){
-    server.send(HTTP_CODE_OK, "text/plain", handleJeedom());
+  //! MUST BE CHANGED  Jeedom access
+  //frame.server.on("/jeedom", [](){
+  //  frame.server.send(HTTP_CODE_OK, "text/plain", handleJeedom());
+  //
+  //});
+  // Append /wwm access html 
+  frame.server.on("/eau", [](){
+    frame.server.send(HTTP_CODE_OK, "text/html", sentHtmlEau());
   });
   // Start DHT22
   dht.begin();
@@ -356,7 +401,7 @@ void setup() {
   // test 
   DBXMF("Heap:%u IP:%s MAC:%s \n\r",ESP.getFreeHeap(), WiFi.localIP().toString().c_str() , WiFi.macAddress().c_str());
 
-  rebootTime = getDate(true);
+  rebootTime = getDate(1);
 }
 
 // Main loop -----------------------------------------------------------------
@@ -383,7 +428,7 @@ void loop() {
   // Call flux loop
   flux.loop();
   // Call frame loop
-  frame_loop();
+  frame.loop();
   // Call key led RGB animation Key repeat = 200ms
   buttonPressed = keyLedBuz.getKey(200);
   if (buttonPressed != 0) {
@@ -404,7 +449,7 @@ void loop() {
     previousMillis = millis();
     getLocalTime(&timeinfo);
     digitalWrite(EspLedBlue, !digitalRead(EspLedBlue));
-    int retJeedom = HTTP_CODE_OK;
+    retJeedom = HTTP_CODE_OK;
     int wifistat = WiFi.status();
     // if wifi is down, try reconnecting every 60 seconds
     if (wifistat != WL_CONNECTED) {
@@ -461,7 +506,7 @@ void loop() {
     // Boiler is changed
     if (flame.isChanged(&timeinfo, 1000)) { // hysteresis = 1000/10 * 2
       SEND2JEEDOM("JFlame.isChanged", wifistat, retJeedom, idPower, flame.flamePerCent);
-      SEND2JEEDOM("JFlame.isChanged", wifistat, retJeedom, idFlam,  flame.state);
+      SEND2JEEDOM("JFlame.isChanged", wifistat, retJeedom, idFlam,  flame.state       );
       if (cmd=='t') {
          DBXMF("%s JFlame.isChanged(Fl_D:%s Fl_A:%u Fl_100:%.1f%%) JeeDom:%s \n\r", 
                         getDate().c_str(), 
@@ -481,13 +526,13 @@ void loop() {
     }
     // every 3 hours. update Gaz power & Water counter & record jeedom config if changed
     boolean quater = ( (timeinfo.tm_hour % 3 == 0) && (timeinfo.tm_min == 0) && (timeinfo.tm_sec == 0));
+    jeedom.config.waterM3 = ((float)flux.interruptCounter/(jeedom.config.fluxReference * 1000.0) );
+    jeedom.config.valveOpen = !isValveClosed;
     if ( onChanged || quater ) {
-      jeedom.config.waterM3 = ((float)flux.interruptCounter/(jeedom.config.fluxReference * 1000) );
-      jeedom.config.valveOpen = !isValveClosed;
-      SEND2JEEDOM("JFlux.isChanged", wifistat, retJeedom, idDebitA, flux.literPerMinute);
-      SEND2JEEDOM("JFlux.isChanged", wifistat, retJeedom, idDebitD, !flux.state);
-      SEND2JEEDOM("JFlux.isChanged", wifistat, retJeedom, idValve,  !isValveClosed);
-      SEND2JEEDOM("JFlux.isChanged", wifistat, retJeedom, idDebitT, jeedom.config.waterM3);
+      SEND2JEEDOM("JFlux.isChanged", wifistat, retJeedom, idDebitA,  flux.literPerMinute  );
+      SEND2JEEDOM("JFlux.isChanged", wifistat, retJeedom, idDebitD, !flux.state           );
+      SEND2JEEDOM("JFlux.isChanged", wifistat, retJeedom, idValve , !isValveClosed        );
+      SEND2JEEDOM("JFlux.isChanged", wifistat, retJeedom, idDebitT,  jeedom.config.waterM3);
       if (onChanged && cmd=='t') {
         DBXMF("%s JFlux.isChanged(%s)->irqCount:%lu  JeeDom:%s \n\r",getDate().c_str(), ((flux.state)?("On  "):("Off ")) ,flux.interruptCounter, httpStatus(retJeedom));
       }
@@ -507,36 +552,43 @@ void loop() {
       onChanged = false;
     }
     // Every 5 minutes record T and H
-    if ( (timeinfo.tm_min % 5==0) && (timeinfo.tm_sec == 15) ) {
-      wdCounter = 0; // Reset WD
-      if (getDHTTemperature()) {
-        SEND2JEEDOM("DHT.Temp.", wifistat, retJeedom, idTemp, temperatureDHT);
-      }
-      if (retJeedom == HTTP_CODE_OK && getDHTHumidity()) {
-        SEND2JEEDOM("DHT.Hum.", wifistat, retJeedom, idHumi, humidityDHT);
-      }
-      if (cmd=='d') {
-        Serial.printf("%s Opt Heap:%u Jee:%d Temp:%.1f°C Hum:%.1f%% \n\r",getDate().c_str(), ESP.getFreeHeap(), retJeedom, temperatureDHT, humidityDHT);
-      }
-      if ( retJeedom != HTTP_CODE_OK ) {
-        saveConfigJeedom = true;
-      }
+    if ( (timeinfo.tm_min % 5) == 0 ) {
+       digitalWrite(pinDHTpwd, HIGH);   // POWER DHT On
+       if  (timeinfo.tm_sec == 15 ) {
+          wdCounter = 0; // Reset WD
+          getDHTTemperature();
+          SEND2JEEDOM("DHT.Temp.", wifistat, retJeedom, idTemp, temperatureDHT);
+          
+          getDHTHumidity();
+          SEND2JEEDOM("DHT.Hum.", wifistat, retJeedom, idHumi, humidityDHT);
+          
+          if (cmd=='d') {
+            DBXMF("%s Opt Heap:%u Jee:%d Temp:%.1f°C Hum:%.1f%% \n\r",getDate().c_str(), ESP.getFreeHeap(), retJeedom, temperatureDHT, humidityDHT);
+          }
+          if ( retJeedom != HTTP_CODE_OK ) {
+            saveConfigJeedom = true;
+          }
+       }
+    } else {
+       digitalWrite(pinDHTpwd, LOW);   // POWER DHT Off
     }
     // one shot display
     if ( cmd=='o' ) {
       cmd = ' ';
-      DBXMF("%s OneShot Wifi:%d Flux Ref:%.1f%% l/m:%.1f Eau:%s valve:%s Fx:%.3fm3 bad:%dsec. Flame:%s rgb:0x%X rgb2:0x%X wdCounter:%d \n\r",
+      DBXMF("%s OneShot Wifi:%d Flux Ref:%.1f%% l/m:%.1f Eau:%s valve:%s irq:%lu Fx:%.3fm3 bad:%dsec. Flame:%s \n\r",
                     getDate().c_str(), wifistat,
                     jeedom.config.fluxReference,
                     flux.literPerMinute,
                     (flux.state)?("On "):("Off"),
                     (isValveClosed)?("Close"):("Open "),
-                    ((float)flux.interruptCounter/(jeedom.config.fluxReference * 1000)),
+                    flux.interruptCounter,
+                    ((float)flux.interruptCounter/(jeedom.config.fluxReference * 1000.0)),
                     cntFluxBadSec,
-                    (flame.state)?("On "):("Off"),
-                    keyLedBuz.rgb,
-                    keyLedBuz.rgb2,
-                    wdCounter);
+                    (flame.state)?("On "):("Off"));
+                    // rgb:0x%X rgb2:0x%X wdCounter:%d
+                   // keyLedBuz.rgb,
+                   // keyLedBuz.rgb2,
+                   // wdCounter);
     }
     // Optional action
     if (saveConfigJeedom ) {
@@ -546,37 +598,7 @@ void loop() {
         DBXMF("%s Configuration Jeedom file has been saved. \n\r", getDate().c_str());
       }
     }
-
-    // Set Oled dsp
-    OLEDC();
-    // Icons
-    if (wifiLost==0) u8g2.drawXBMP(0,0,14,14,wifi_1);
-    else u8g2.drawXBMP(0,0,14,14,wifi_0);
-    if (retJeedom == HTTP_CODE_OK) u8g2.drawXBMP(16,0,14,14,jeedom_1);
-    else u8g2.drawXBMP(16,0,14,14,jeedom_0);
-    if (flame.state) u8g2.drawXBMP(32,0,14,14,flame_1);
-    else u8g2.drawXBMP(32,0,14,14,flame_0);
-    if (isValveClosed) u8g2.drawXBMP(48,0,14,14,valve_0);
-    else u8g2.drawXBMP(48,0,14,14,valve_1);  
-    // Text
-    u8g2.setFont(u8g2_font_7x14_tf);
-    OLEDF( 73,14, "%s", getTime().c_str());
-    switch (cntOled) {
-      case 0: OLEDF( 0, 31, "Temp:%2.0f°C Hum:%2.0f%%", temperatureDHT,humidityDHT); break;
-      case 1: OLEDF( 0, 31, "Eau: %.3f m3", jeedom.config.waterM3); break;
-      case 2: OLEDF( 0, 31, "Vanne: %s", (isValveClosed)?("Fermé"):("Ouverte") ); break;
-      case 3: OLEDF( 0, 31, "Flamme: %s", (flame.state)?("Allumé"):("Eteinte") ); break;
-      case 4: OLEDF( 0, 31, "Wifi:%s", WiFi.localIP().toString().c_str() ); break;
-      case 5: OLEDF( 0, 31, "Mac: %s", WiFi.macAddress().c_str() ); break;
-      case 6: OLEDF( 0, 31, "Jeedom: %s", ((retJeedom == HTTP_CODE_OK)?("est OK"):("Erreur")) ); break;
-      case 7: OLEDF( 0, 31, "Date: %s", getDate(true).c_str() ); break;
-      case 8: OLEDF( 0, 31, "Version: %s", VERSION ); break;
-      case 9: OLEDF( 0, 31, "Reboot: %s", rebootTime.c_str() ); break;
-      default: cntOled=0; break; 
-    }
-    OLEDS();
-    if ( (timeinfo.tm_sec % 3)==0 ) {
-       cntOled++;
-    }
+    // oled display
+    setDsp();
   } // End second
 }
