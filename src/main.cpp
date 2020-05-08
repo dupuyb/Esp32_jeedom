@@ -13,7 +13,7 @@ FrameWeb frame;
 #include "JFlux.h"
 #include "JKeyLedBuz.h"
 
-const char VERSION[] = "2.3.5"; // User FrameWeb class insidemof Frame.h
+const char VERSION[] = "2.4.3";
 // Debug macro
 // #define DEBUG_MAIN
 #ifdef DEBUG_MAIN
@@ -99,7 +99,7 @@ String getDate(int sh = -1){
 // DHT22 pin 13
 #define pinDHT     13 // GPIO13
 #define pinDHTpwd  21 // GPIO21 //! put mosFET 
-DHT dht(pinDHT, DHT22); //! BUG after few day sensor frozen....
+DHT dht(pinDHT, DHT11); //! BUG after few day sensor frozen....
 float temperatureDHT = -1;
 float humidityDHT = -1;
 
@@ -231,37 +231,7 @@ void actionSetTotal(uint64_t val) {
 
 // -------- Web transformation into Get Set functions ------------- 
 #include "eau.h"
-/*
-//! received argument from Jeedom script via virutal
-String handleJeedom() {
-  String ret ="jeedom_ok";
-  String srvcmd = frame.server.arg("cmd");
-  String srvval = frame.server.arg("value");
-  if (srvcmd!="") {
-    if (srvcmd=="reference" ) { // Msg cmd=reference
-      if (srvval!="") jeedom.config.fluxReference = srvval.toFloat(); // SET
-      else ret = String(jeedom.config.fluxReference); // No value tag value => GET
-    }
-    else if (srvcmd=="delay" ) { // Msg cmd=delay
-      if (srvval!="") jeedom.config.openDelay = srvval.toFloat(); // SET
-      else ret = String(jeedom.config.openDelay);
-    }
-    else if (srvcmd=="total") { // Msg cmd=total value=m3 in float   http://192.168.1.19/jeedom?cmd=total&value=61.145
-      if (srvval!="") actionSetTotal( (uint64_t) (srvval.toFloat()*1000.0) );
-      else ret = String( (int)flux.interruptCounter);
-    }
-    else if (srvcmd=="action" ) { // Msg cmd=action
-      if (srvval=="open") actionOpen();
-      else if (srvval=="close") actionClose();
-      else if (srvval == "reset") actionReset();
-    }
-    if (jeedom.isCcrChanged()) saveConfigJeedom = true;
-    if (cmd=='d' || cmd=='f')
-      DBXMF("%s Jeedom srvcmd:%s srvval:%s fluxRef.=%.1f oDelay=%.1f \n\r",((srvval!="")?("Set"):("Get")), srvcmd.c_str(), srvval.c_str(), jeedom.config.fluxReference, jeedom.config.openDelay);
-  }
-  return ret;
-}
-*/
+
 bool getDHTHumidity(){
   bool ret = false;
   float h = dht.readHumidity(true);
@@ -369,7 +339,7 @@ void setup() {
   pinMode(EspLedBlue, OUTPUT);     // Led is BLUE at statup
   digitalWrite(EspLedBlue, HIGH);  // After 5 seconds blinking indicate WiFI ids OK
   pinMode(pinDHTpwd, OUTPUT); 
-  digitalWrite(pinDHTpwd, HIGH);   // POWER DHT On
+  digitalWrite(pinDHTpwd, LOW);   // POWER DHT On
   delay(2000);
    // Start my WatchDog olso used to reset AP evey 15m (Some time after general cut off Wifi host is started after Eps)
   xTaskCreate(&watchdog, "wd task", 2048, NULL, 5, NULL);
@@ -379,17 +349,13 @@ void setup() {
   keyLedBuz.rgb = 0x777777;  // WifiOK
   // Start jeedom_ok ---> Jedom command Return jeedom_ok
   jeedom.setup();
-  //! MUST BE CHANGED  Jeedom access
-  //frame.server.on("/jeedom", [](){
-  //  frame.server.send(HTTP_CODE_OK, "text/plain", handleJeedom());
-  //
-  //});
   // Append /wwm access html 
   frame.server.on("/eau", [](){
     frame.server.send(HTTP_CODE_OK, "text/html", sentHtmlEau());
   });
+  frame.externalHtmlTools="Specific home page is visible at :<a class='button' href='/eau'>Eau Page</a>";
   // Start DHT22
-  dht.begin();
+  dht.begin(255); // default 55us
   // Init time
   configTime(gmtOffset_sec, daylightOffset_sec, ntpServer); //init and get the time
   wifiLost = 0;
@@ -400,7 +366,6 @@ void setup() {
   getLocalTime(&timeinfo);
   // test 
   DBXMF("Heap:%u IP:%s MAC:%s \n\r",ESP.getFreeHeap(), WiFi.localIP().toString().c_str() , WiFi.macAddress().c_str());
-
   rebootTime = getDate(1);
 }
 
@@ -553,7 +518,7 @@ void loop() {
     }
     // Every 5 minutes record T and H
     if ( (timeinfo.tm_min % 5) == 0 ) {
-       digitalWrite(pinDHTpwd, HIGH);   // POWER DHT On
+       digitalWrite(pinDHTpwd, LOW);   // POWER DHT On
        if  (timeinfo.tm_sec == 15 ) {
           wdCounter = 0; // Reset WD
           getDHTTemperature();
@@ -570,7 +535,7 @@ void loop() {
           }
        }
     } else {
-       digitalWrite(pinDHTpwd, LOW);   // POWER DHT Off
+       digitalWrite(pinDHTpwd, HIGH);   // POWER DHT Off
     }
     // one shot display
     if ( cmd=='o' ) {
@@ -585,10 +550,6 @@ void loop() {
                     ((float)flux.interruptCounter/(jeedom.config.fluxReference * 1000.0)),
                     cntFluxBadSec,
                     (flame.state)?("On "):("Off"));
-                    // rgb:0x%X rgb2:0x%X wdCounter:%d
-                   // keyLedBuz.rgb,
-                   // keyLedBuz.rgb2,
-                   // wdCounter);
     }
     // Optional action
     if (saveConfigJeedom ) {
