@@ -1,0 +1,5 @@
+01/05/20 0900 - 2.5.3 - Add Capacity 100nF on IR irq Gnd signal.
+01/05/20 1200 - 2.5.4 - Add RC on Hall sensor.
+01/05/20 1630 - 2.5.5 - Add RC on all sensor + more filting on +5v and +3.3v.
+              - Demontage car sa plante ....
+              

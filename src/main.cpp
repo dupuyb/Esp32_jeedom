@@ -5,15 +5,25 @@
 #include "FrameWeb.h"
 FrameWeb frame;
 
-#include <Adafruit_Sensor.h>
+#include "HLog.h"
+HLog hlog(150, 15000, true);
+
 #include <time.h>
-#include "DHT.h"
 #include "Jeedom.h"
 #include "JFlame.h"
 #include "JFlux.h"
 #include "JKeyLedBuz.h"
+// Reset Reason 
+#include <rom/rtc.h>
 
-const char VERSION[] = "2.4.3";
+// LOGGER
+#define LOG(format, ...) { \
+  char temp[120];\
+  snprintf(temp, 120, format, __VA_ARGS__); \
+  hlog.append(temp); \
+}  
+
+const char VERSION[] ="2.5.6"; // Delete DHT sensor
 // Debug macro
 // #define DEBUG_MAIN
 #ifdef DEBUG_MAIN
@@ -81,27 +91,21 @@ String getDate(int sh = -1){
   static char temp[20];
   switch (sh) {
   case 0: 
-      snprintf(temp, 20, "%02d/%02d/%04d",
-           timeinfo.tm_mday, (timeinfo.tm_mon+1), (1900+timeinfo.tm_year) );
-      break;
+    snprintf(temp, 20, "%02d/%02d/%04d", timeinfo.tm_mday, (timeinfo.tm_mon+1), (1900+timeinfo.tm_year) );
+    break;
   case 1:
-     snprintf(temp, 20, "%02d/%02d/%02d %02d:%02d",
-           timeinfo.tm_mday, (timeinfo.tm_mon+1), (timeinfo.tm_year-100),  timeinfo.tm_hour,timeinfo.tm_min );
-      break;
+    snprintf(temp, 20, "%02d/%02d/%02d %02d:%02d", timeinfo.tm_mday, (timeinfo.tm_mon+1), (timeinfo.tm_year-100),  timeinfo.tm_hour,timeinfo.tm_min );
+    break;
   default:
-     snprintf(temp, 20, "%02d/%02d/%04d %02d:%02d:%02d",
-           timeinfo.tm_mday, (timeinfo.tm_mon+1), (1900+timeinfo.tm_year),  timeinfo.tm_hour,timeinfo.tm_min,timeinfo.tm_sec );
-      break;
+    snprintf(temp, 20, "%02d/%02d/%04d %02d:%02d:%02d", timeinfo.tm_mday, (timeinfo.tm_mon+1), (1900+timeinfo.tm_year),  timeinfo.tm_hour,timeinfo.tm_min,timeinfo.tm_sec );
+    break;
   }
   return String(temp);
 }
 
 // DHT22 pin 13
-#define pinDHT     13 // GPIO13
-#define pinDHTpwd  21 // GPIO21 //! put mosFET 
-DHT dht(pinDHT, DHT11); //! BUG after few day sensor frozen....
-float temperatureDHT = -1;
-float humidityDHT = -1;
+//#define pinEXT     13 // GPIO13
+//#define pinEXTpwd  21 // GPIO21
 
 // Boiler flame
 #define pinFlameAo 36 // ADC1_0 A
@@ -112,8 +116,9 @@ float tmpLiterPerMinute;          // On change on liter per minute
 uint16_t cntFluxBadSec = 0;       // Count how many seconds the flux is flowing
 boolean isValveClosed  = false;   // Valve must be closed or opened
 // IRQ
-#define interruptPin 34
-JFlux flux(interruptPin);
+#define irqPinHall 34
+#define irqPinIR 13
+JFlux flux(irqPinHall, irqPinIR);
 
 // Relay Valve Button LEd pins
 #define pinVD 14 // Valve Direction
@@ -135,14 +140,14 @@ long previousMillis = 0;
 Jeedom jeedom("/cfJeedom.json");
 bool saveConfigJeedom = false;
 // Devices from virtual jeedom
-const int idTemp   = 1784;
-const int idHumi   = 1785;
-const int idFlam   = 1786;
-const int idPower  = 1816;
+const int idTemp   = 1784; // Not used
+const int idHumi   = 1785; // Not used
+const int idFlam   = 1786; // On Off Flam
+const int idPower  = 1816; // Percent Flam
 const int idDebitA = 1811; // l/m
 const int idDebitT = 1812; // Total m3
 const int idDebitD = 1823; // Flux On/Off
-const int idValve  = 1825;
+const int idValve  = 1825; // Open Closed
 bool onChanged = true;
 // #define JEEDOM_DISLABED
 #ifdef JEEDOM_DISLABED
@@ -159,72 +164,28 @@ bool onChanged = true;
 #endif
 
 // Frame option
-void configModeCallback(WiFiManager *myWiFiManager) {}
 void saveConfigCallback() {}
-
-// Test webscoket
-uint32_t value;
-void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) {
-  switch(type) {
-    case WStype_DISCONNECTED:
-      DBXMF("[%u] Disconnected!", num);
-      break;
-    case WStype_CONNECTED:
-    {
-      IPAddress ip = frame.webSocket.remoteIP(num);
-      DBXMF("[%u] Connected from %d.%d.%d.%d url: [%s]", num, ip[0], ip[1], ip[2], ip[3], payload);
-      String ReponseHTML = String(value);
-      frame.webSocket.sendTXT(num, ReponseHTML);
-    }
-      break;
-    case WStype_TEXT:
-    {
-      DBXMF("[%u] get Text: %s", num, payload);
-      String _payload = String((char *) &payload[0]);
-      if (payload[0] == '#')
-        value = (uint32_t) strtol((const char *) &payload[1], NULL, 16);   // decode sendValue
-      String ReponseHTML = String(value);
-      frame.webSocket.sendTXT(num, ReponseHTML);
-    }
-      break;
-    case WStype_BIN:
-      DBXMF("[WSc] get binary length: %u", length);
-      // webSocket.sendBIN(payload, length);
-      break;
-    case WStype_ERROR:
-    case WStype_FRAGMENT_TEXT_START:
-    case WStype_FRAGMENT_BIN_START:
-    case WStype_FRAGMENT:
-    case WStype_FRAGMENT_FIN:
-      break;
-  }
-}
+void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) {}
 
 // Action from JEEDOM
 void actionOpen() {
-  if (cmd=='d')
-    DBXMLN(F("Mode jeeDom actionOpen."));
   isValveClosed = false;
   onChanged = true;
+  LOG("%s -Action OPEN valve.", getDate().c_str());
 }
 void actionClose() {
-  if (cmd=='d')
-    DBXMLN(F("Mode jeeDom actionClose."));
   isValveClosed = true;
   onChanged = true;
-
+  LOG("%s -Action CLOSE valve.", getDate().c_str());
 }
 void actionReset() {
-  if (cmd=='d')
-    DBXMLN(F("Mode jeeDom actionReset."));
   cntFluxBadSec = 0;
   isValveClosed = false;
   onChanged = true;
-
+  LOG("%s -Action RESET valve.", getDate().c_str());
 }
 void actionSetTotal(uint64_t val) {
-  if (cmd=='d')
-    DBXMLN(F("Mode jeeDom actionSetTotal="+val));
+  LOG("%s -Action SET total at %llu m3", getDate().c_str(), val);
   flux.interruptCounter = val;
   onChanged = true;
 }
@@ -232,26 +193,6 @@ void actionSetTotal(uint64_t val) {
 // -------- Web transformation into Get Set functions ------------- 
 #include "eau.h"
 
-bool getDHTHumidity(){
-  bool ret = false;
-  float h = dht.readHumidity(true);
-  if (isnan(h)) return ret;
-  if (humidityDHT!=h) ret = true;
-  humidityDHT=h;
-  return ret;
-}
-
-int getDHTTemperature(){
-  int ret = 0;
-  float t = dht.readTemperature(true);
-  if (isnan(t)) {
-    DBXMF("%s DHT ERROR I2C RET:%d \n\r", getDate().c_str(), ret);
-    return -1;
-  }
-  if (temperatureDHT!=t) ret = 1;
-  temperatureDHT=t;
-  return ret;
-}
 
 int retJeedom = HTTP_CODE_OK;
 void setDsp() {
@@ -275,7 +216,7 @@ void setDsp() {
     u8g2.setFont(u8g2_font_7x14_tf);
     OLEDF( 73,14, "%s", getTime().c_str());
     switch (cntOled) {
-      case 0: OLEDF( 0, 31, "Temp:%2.0f°C Hum:%2.0f%%", temperatureDHT, humidityDHT); break;
+      case 0: /* OLEDF( 0, 31, "Temp:%2.0f°C Hum:%2.0f%%", temperatureDHT, humidityDHT); break; */
       case 1: OLEDF( 0, 31, "Eau: %.3f m3", jeedom.config.waterM3); break;
       case 2: OLEDF( 0, 31, "Vanne: %s", (isValveClosed)?("Fermé"):("Ouverte") ); break;
       case 3: OLEDF( 0, 31, "Flamme: %s", (flame.state)?("Allumée"):("Eteinte") ); break;
@@ -292,19 +233,17 @@ void setDsp() {
        cntOled++;
     }
 }
-// WatchDog:  wdCounter is set to 0 at (timeinfo.tm_min % 5==0) && (timeinfo.tm_sec == 15)
-//            otherwise after 15 minutes ESP is restarted
+// WatchDog
 uint32_t wdCounter = 0;
 void watchdog(void *pvParameter) {
   while (1) {
-    vTaskDelay(1000/portTICK_RATE_MS);
-    // setDsp();
+    vTaskDelay(5000/portTICK_RATE_MS); // Wait 5 sec
     wdCounter++;
-    if (wdCounter > 400) {
+    if (wdCounter > 400) { // 
       // We have a problem no connection if crash or waitting 
       if (wdCounter == 401 ) {
-        DBXMF("%s Wifi.Status=%s       \r\n",  getDate().c_str(), wifiStatus(WiFi.status()) );
-        DBXMF("%s wdCounter:%d REBOOT...\n\r", getDate().c_str(), wdCounter);
+        LOG("%s -WatchDog Wifi:%s after:%d sec. -> REBOOT.", getDate().c_str(), frame.wifiStatus(WiFi.status()), (wdCounter*5) );
+        hlog.flush();
       } else {
         // Perhapse force ??? WiFi.begin(ssid, password);
         ESP.restart(); // Restart after 5sec * 180 => 15min
@@ -315,13 +254,14 @@ void watchdog(void *pvParameter) {
 }
 
 //  configModeCallback callback when entering into AP mode
-void myConfigModeCallback (WiFiManager *myWiFiManager) {
+void configModeCallback (WiFiManager *myWiFiManager) {
   // Clear OLED 
   OLEDC();
   u8g2.setFont(u8g2_font_7x14_tf);
   OLEDF( 0, 10, "AP: %s", myWiFiManager->getConfigPortalSSID().c_str()); 
   OLEDF( 0, 31, "IP: %s", WiFi.softAPIP().toString().c_str()); 
   OLEDS();
+  LOG("%s -ACCESS POINT actived MAC:%s IP:%s", getDate().c_str(), myWiFiManager->getConfigPortalSSID().c_str() ,  WiFi.softAPIP().toString().c_str() );
 }
 
 void setup() {
@@ -338,14 +278,11 @@ void setup() {
   // Set pin mode  I/O Directions
   pinMode(EspLedBlue, OUTPUT);     // Led is BLUE at statup
   digitalWrite(EspLedBlue, HIGH);  // After 5 seconds blinking indicate WiFI ids OK
-  pinMode(pinDHTpwd, OUTPUT); 
-  digitalWrite(pinDHTpwd, LOW);   // POWER DHT On
-  delay(2000);
    // Start my WatchDog olso used to reset AP evey 15m (Some time after general cut off Wifi host is started after Eps)
   xTaskCreate(&watchdog, "wd task", 2048, NULL, 5, NULL);
   keyLedBuz.rgb = 0xFFFFFF; // Wait Wifi
   // Start framework
-  frame.setup( myConfigModeCallback );
+  frame.setup();
   keyLedBuz.rgb = 0x777777;  // WifiOK
   // Start jeedom_ok ---> Jedom command Return jeedom_ok
   jeedom.setup();
@@ -353,20 +290,24 @@ void setup() {
   frame.server.on("/eau", [](){
     frame.server.send(HTTP_CODE_OK, "text/html", sentHtmlEau());
   });
+  frame.server.on("/tail",  [](){
+    frame.server.send(HTTP_CODE_OK, "text/plain", hlog.getTail());
+  });
   frame.externalHtmlTools="Specific home page is visible at :<a class='button' href='/eau'>Eau Page</a>";
-  // Start DHT22
-  dht.begin(255); // default 55us
   // Init time
   configTime(gmtOffset_sec, daylightOffset_sec, ntpServer); //init and get the time
   wifiLost = 0;
   // IRQ
   flux.setup(jeedom.config.waterM3, jeedom.config.fluxReference);
   isValveClosed = !jeedom.config.valveOpen;
-  // Start
+  // Start time
   getLocalTime(&timeinfo);
-  // test 
-  DBXMF("Heap:%u IP:%s MAC:%s \n\r",ESP.getFreeHeap(), WiFi.localIP().toString().c_str() , WiFi.macAddress().c_str());
+  // Wait get time delay
+  delay(2000);
   rebootTime = getDate(1);
+  // Get Reset Reason 
+  RESET_REASON rr = rtc_get_reset_reason(0);
+  LOG("%s -CPU REBOOT(%s)  IP:%s MAC:%s", getDate().c_str(), frame.resetReason((int)rr), WiFi.localIP().toString().c_str() , WiFi.macAddress().c_str() );
 }
 
 // Main loop -----------------------------------------------------------------
@@ -378,12 +319,9 @@ void loop() {
       cmd = c;
     } else {
       if (c==13) {
-        if (cmd=='h') { Serial.println(); Serial.println("- Help info: r=reboot i=myip d=debug t=traceChgt o=OneShot s=saveConfig");}
+        if (cmd=='h') { Serial.println(); Serial.println("- Help info: r=reboot i=myip s=saveConfig");}
         else if (cmd=='r') { ESP.restart(); }
         else if (cmd=='i') { Serial.printf("Heap:%u IP:%s \n\r",ESP.getFreeHeap(), WiFi.localIP().toString().c_str() ); }
-        else if (cmd=='d') { Serial.println("Mode debug active."); }
-        else if (cmd=='t') { Serial.println("Mode trace onCahnge active."); }
-        else if (cmd=='o') { Serial.println("Mode One shot display."); }
         else if (cmd=='s') { Serial.println("Mode save config."); jeedom.saveConfigurationJeedom(); cmd=' ';}
         else { Serial.printf("Stop serial: %s \n\r",VERSION); }
       }
@@ -397,9 +335,6 @@ void loop() {
   // Call key led RGB animation Key repeat = 200ms
   buttonPressed = keyLedBuz.getKey(200);
   if (buttonPressed != 0) {
-    if (cmd == 'd') {
-      DBXMF("Button ID:%d detected\n\r",  buttonPressed);
-    }
     // Action on keyboard
     if (buttonPressed == 1) { // UP
       cntFluxBadSec=0;
@@ -419,32 +354,37 @@ void loop() {
     // if wifi is down, try reconnecting every 60 seconds
     if (wifistat != WL_CONNECTED) {
       wifiLost++;
-      if (wifiLost==1) {
-        DBXMF("%s WiFi connection is lost(%s). wifiCnt:%d jeeErrCnt:%d localIP:%s\n\r",getDate().c_str(), wifiStatus(wifistat), wifiLost, jeedom.getErrorCounter(), WiFi.localIP().toString().c_str());
+      if (wifiLost==10) {
+        LOG("%s -WiFi Lost:%s wifiLost:%d sec. jeeErrCnt:%d localIP:%s", getDate().c_str(), frame.wifiStatus(wifistat), wifiLost, jeedom.getErrorCounter(), WiFi.localIP().toString().c_str() );
       }
-      else { 
-        DBXMF("."); 
-      }
-      if (wifiLost == 30 ) {
+      if (wifiLost == 50) {
+        LOG("%s -WiFi disconnect OK after 50s (%s).",getDate().c_str(), frame.wifiStatus(wifistat));
         saveConfigJeedom = true;
+        WiFi.disconnect();
       }
-      // if (wifiLost == 50)   WiFi.disconnect();
       if (wifiLost == 60) {
         if (WiFi.reconnect()) {
-          DBXMF("%s WiFi reconnect OK after 60s (%s). \n\r",getDate().c_str(), wifiStatus(wifistat));
+          LOG("%s -WiFi reconnect OK after 60s (%s).",getDate().c_str(), frame.wifiStatus(wifistat));
           wifistat = WL_CONNECTED;
         }
-        wifiLost = 0;
       }
     } else {
-      if (wifiLost>0) {
-        DBXMF("\n\r");
-      }
+      wdCounter = 0;
       wifiLost = 0;
     }
     // Valve state analysis
     if (isValveClosed==false) {
       if (flux.isChanged(&timeinfo, jeedom.config.fluxReference)) {
+        //portENTER_CRITICAL(&mux);
+        LOG("%s -Flux.isCh irq: %lu magnet: %d paddle: %d p/l lxm: %.1f Eau: %s Valve: %s", 
+                getDate().c_str(),
+                flux.interruptCounter, 
+                magnetHallPluse, 
+                paddleWheelPluseDsp, 
+                flux.literPerMinute, 
+                ((flux.state)?("On "):("Off")), 
+                ((isValveClosed)?("Close"):("Open")) );
+        //portEXIT_CRITICAL(&mux);
         onChanged = true;
       }
       if (flux.state == true) {
@@ -472,92 +412,35 @@ void loop() {
     if (flame.isChanged(&timeinfo, 1000)) { // hysteresis = 1000/10 * 2
       SEND2JEEDOM("JFlame.isChanged", wifistat, retJeedom, idPower, flame.flamePerCent);
       SEND2JEEDOM("JFlame.isChanged", wifistat, retJeedom, idFlam,  flame.state       );
-      if (cmd=='t') {
-         DBXMF("%s JFlame.isChanged(Fl_D:%s Fl_A:%u Fl_100:%.1f%%) JeeDom:%s \n\r", 
-                        getDate().c_str(), 
-                        ((flame.state==1)?("On "):("Off")), 
-                        flame.value, 
-                        flame.flamePerCent, 
-                        httpStatus(retJeedom));
-      }
     }
     if (flame.state)  {
       keyLedBuz.rgb2 = 0xFF7700; // change flash by red
+    } else {
+       keyLedBuz.rgb2 = 0x0;
     }
-    else keyLedBuz.rgb2 = 0x0;
     if (flux.literPerMinute!=tmpLiterPerMinute) {
-      tmpLiterPerMinute=flux.literPerMinute;
+      tmpLiterPerMinute = flux.literPerMinute;
       SEND2JEEDOM("JFlux.isChanged", wifistat, retJeedom, idDebitA, flux.literPerMinute);
     }
-    // every 3 hours. update Gaz power & Water counter & record jeedom config if changed
-    boolean quater = ( (timeinfo.tm_hour % 3 == 0) && (timeinfo.tm_min == 0) && (timeinfo.tm_sec == 0));
+    // every day. update Gaz power & Water counter & record jeedom config if changed
+    boolean newday = ( (timeinfo.tm_hour == 23) && (timeinfo.tm_min == 59) && (timeinfo.tm_sec == 55));
     jeedom.config.waterM3 = ((float)flux.interruptCounter/(jeedom.config.fluxReference * 1000.0) );
     jeedom.config.valveOpen = !isValveClosed;
-    if ( onChanged || quater ) {
-      SEND2JEEDOM("JFlux.isChanged", wifistat, retJeedom, idDebitA,  flux.literPerMinute  );
+    if ( onChanged || newday ) {
+      SEND2JEEDOM("JFlux.isChanged", wifistat, retJeedom, idDebitA, flux.literPerMinute   );
       SEND2JEEDOM("JFlux.isChanged", wifistat, retJeedom, idDebitD, !flux.state           );
       SEND2JEEDOM("JFlux.isChanged", wifistat, retJeedom, idValve , !isValveClosed        );
-      SEND2JEEDOM("JFlux.isChanged", wifistat, retJeedom, idDebitT,  jeedom.config.waterM3);
-      if (onChanged && cmd=='t') {
-        DBXMF("%s JFlux.isChanged(%s)->irqCount:%lu  JeeDom:%s \n\r",getDate().c_str(), ((flux.state)?("On  "):("Off ")) ,flux.interruptCounter, httpStatus(retJeedom));
-      }
-      if ( quater && jeedom.isCcrChanged())  {
+      SEND2JEEDOM("JFlux.isChanged", wifistat, retJeedom, idDebitT, jeedom.config.waterM3 );
+      if ( newday /* && jeedom.isCcrChanged()*/ )  {
         saveConfigJeedom = true;
-      }
-      if (cmd=='d') {
-        DBXMF("%s 3h_|_OnCh l/m:%.1f Eau:%s valve:%s Fx:%.3fm3 onCh:%s JeeDom:%s \n\r",
-                        getDate().c_str(),
-                        flux.literPerMinute,
-                        (flux.state)?("On "):("Off"),
-                        (isValveClosed)?("Close"):("Open "),
-                        jeedom.config.waterM3,
-                        (onChanged)?("True "):("False"),
-                        httpStatus(retJeedom));
       }
       onChanged = false;
     }
-    // Every 5 minutes record T and H
-    if ( (timeinfo.tm_min % 5) == 0 ) {
-       digitalWrite(pinDHTpwd, LOW);   // POWER DHT On
-       if  (timeinfo.tm_sec == 15 ) {
-          wdCounter = 0; // Reset WD
-          getDHTTemperature();
-          SEND2JEEDOM("DHT.Temp.", wifistat, retJeedom, idTemp, temperatureDHT);
-          
-          getDHTHumidity();
-          SEND2JEEDOM("DHT.Hum.", wifistat, retJeedom, idHumi, humidityDHT);
-          
-          if (cmd=='d') {
-            DBXMF("%s Opt Heap:%u Jee:%d Temp:%.1f°C Hum:%.1f%% \n\r",getDate().c_str(), ESP.getFreeHeap(), retJeedom, temperatureDHT, humidityDHT);
-          }
-          if ( retJeedom != HTTP_CODE_OK ) {
-            saveConfigJeedom = true;
-          }
-       }
-    } else {
-       digitalWrite(pinDHTpwd, HIGH);   // POWER DHT Off
-    }
-    // one shot display
-    if ( cmd=='o' ) {
-      cmd = ' ';
-      DBXMF("%s OneShot Wifi:%d Flux Ref:%.1f%% l/m:%.1f Eau:%s valve:%s irq:%lu Fx:%.3fm3 bad:%dsec. Flame:%s \n\r",
-                    getDate().c_str(), wifistat,
-                    jeedom.config.fluxReference,
-                    flux.literPerMinute,
-                    (flux.state)?("On "):("Off"),
-                    (isValveClosed)?("Close"):("Open "),
-                    flux.interruptCounter,
-                    ((float)flux.interruptCounter/(jeedom.config.fluxReference * 1000.0)),
-                    cntFluxBadSec,
-                    (flame.state)?("On "):("Off"));
-    }
     // Optional action
     if (saveConfigJeedom ) {
-      boolean scjd = jeedom.saveConfigurationJeedom();
+      jeedom.saveConfigurationJeedom();
+      hlog.flush();
       saveConfigJeedom = false;
-      if ( (cmd=='d') && scjd) {
-        DBXMF("%s Configuration Jeedom file has been saved. \n\r", getDate().c_str());
-      }
     }
     // oled display
     setDsp();

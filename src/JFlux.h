@@ -1,12 +1,36 @@
 #ifndef JFlux_h
 #define JFlux_h
 
+// Interrupt if IR sensor SG-2BC detects the paddle wheel
+portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;
+volatile uint16_t paddleWheelPluse;
+volatile uint16_t paddleWheelPluseDsp;
+void IRAM_ATTR irqPaddleWheel() {
+  portENTER_CRITICAL_ISR(&mux);
+  paddleWheelPluse++;
+  portEXIT_CRITICAL_ISR(&mux);
+}
+// irq
+volatile uint16_t magnetHallPluse;
+int valCnt; 
+void IRAM_ATTR irqMagnetHall() {
+  portENTER_CRITICAL_ISR(&mux);
+  valCnt=digitalRead(34);
+  if (valCnt==HIGH) {
+    magnetHallPluse++;
+    paddleWheelPluseDsp = paddleWheelPluse;
+    paddleWheelPluse=0;
+  }
+  portEXIT_CRITICAL_ISR(&mux);
+}
+
+
 class JFlux {
 public:
 
-  JFlux(int p) {
-    interrupPin = p;
-    pinMode(interrupPin, INPUT);
+  JFlux(int p, int q) {
+    interrupPinL = p;
+    pinPaddleWheel = q;
   }
 
   // Better than irq at 6-7 l/m irq signal is like:
@@ -15,7 +39,7 @@ public:
   uint8_t counterLo = 0;
   void loop() {
      unsigned long now = millis();
-     valCnt = digitalRead(interrupPin);
+    //  valCnt = digitalRead(interrupPinL);
      // Irq correct if low more than 1 sec
      if (valCnt==1) {
        counterLo = 0;
@@ -35,14 +59,23 @@ public:
      }
    }
 
-  void setup(float totWaterM3, float implusionPerLitre) {
-    // Default total counter
-    interruptCounter = (uint64_t)(totWaterM3 * 1000.0 * (float)implusionPerLitre); // last value recorded in jeedom
-    logCounter = interruptCounter;
-    for (int i=0;i<4;i++)
-      timeMs[i] = millis();
-    // Serial.printf("Flux.setup interruptCounter=%lu at:%lu ms\n\r", interruptCounter, timeMs[0]);
-  }
+   void setup(float totWaterM3, float implusionPerLitre) {
+     // Default total counter
+     interruptCounter = (uint64_t)(totWaterM3 * 1000.0 * (float)implusionPerLitre); // last value recorded in jeedom
+     logCounter = interruptCounter;
+     for (int i = 0; i < 4; i++)
+       timeMs[i] = millis();
+     // Serial.printf("Flux.setup interruptCounter=%lu at:%lu ms\n\r", interruptCounter, timeMs[0]);
+     // Test irq
+     magnetHallPluse = 0;
+     paddleWheelPluse = 0;
+     // pinMode(interrupPinL, INPUT);
+     pinMode(interrupPinL, INPUT_PULLUP);
+     attachInterrupt(digitalPinToInterrupt(interrupPinL), irqMagnetHall, CHANGE);
+     // pinMode(pinPaddleWheel, INPUT);
+     pinMode(pinPaddleWheel, INPUT_PULLUP);
+     attachInterrupt(digitalPinToInterrupt(pinPaddleWheel), irqPaddleWheel, FALLING);
+   }
 
   // _-------_--------__----- 1,6-1,7 sec Low 7-9 sec High
   boolean isChanged(struct tm *time, float implusionPerLitre) {
@@ -72,10 +105,11 @@ public:
   boolean  state = false;
   float    literPerMinute = 0;
   unsigned long interruptCounter;
-  int      valCnt;
+ // int      valCnt;
 
 private :
-  int interrupPin; // pin
+  int interrupPinL; // pin Hall detector
+  int pinPaddleWheel; // pin IR detector
   unsigned long timeMs[4];
   boolean lastState = false;
   uint64_t logCounter = 0; // Last implusionPerLitre at every seconds
