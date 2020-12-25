@@ -1,8 +1,25 @@
 #!/usr/bin/python3
+# version 0.9.1
+# How to run python3 extra_script.py
+# Utility used to convert html file in Cpp file with Get Set facility.
+#  python Convertor html to Cpp  installed in plateformio.ini and convert at compile.
+#  extra_scripts = pre:extra_script.py
+#  custom_in_html = src/eau.html
+#  custom_out_h = src/eau.h
+# ---------------------------
+# sample : extract list of keyword (%%___%%)
+# MacBook-Pro-de-Bruno:Esp32_Jeedom dupuyb$ python3 extra_script.py -f src/eau.html 
+# Key list   : ['Cmd', 'DATE', 'DFE', 'FL', 'HOS', 'IP', 'IPL', 'MAC', 'MFREE', 'MT', 'RB', 'TITLE', 'TOE', 'Tst', 'VL']
+# Number Key : 15
+# Max Key len: 5
+
 import sys, getopt, datetime, pathlib, re
 from tempfile import mkstemp
 from shutil import move
 from os import remove
+
+# desabled pylint ...
+# pylint: disable=unused-variable
 
 # Pattern arroud KEY here ##Key##
 REGPAT=r"%%\w*%%"
@@ -16,7 +33,7 @@ def help(opt):
     sys.exit(opt)
 
 def replace(source_file_path, code):
-    fh, target_file_path = mkstemp()
+    fh,target_file_path = mkstemp()
     cpok=True
     error=True
     with open(target_file_path, 'w') as target_file:
