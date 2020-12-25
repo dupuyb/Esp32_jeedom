@@ -16,25 +16,16 @@ HLog hlog(150, 15000, true);
 // Reset Reason 
 #include <rom/rtc.h>
 
-// LOGGER
+// LOGGER update 120 chars Max
 #define LOG(format, ...) { \
   char temp[120];\
   snprintf(temp, 120, format, __VA_ARGS__); \
   hlog.append(temp); \
 }  
 
-const char VERSION[] ="2.5.6"; // Delete DHT sensor
-// Debug macro
+const char VERSION[] ="2.6.D";
+// Debug macro 
 // #define DEBUG_MAIN
-#ifdef DEBUG_MAIN
-#define DBXM(...) {Serial.print("[M]");Serial.print(__VA_ARGS__);}
-#define DBXMLN(...) {Serial.print("[M]");Serial.println(__VA_ARGS__);}
-#define DBXMF(...) {Serial.print("[M]");Serial.printf(__VA_ARGS__);}
-#else
-#define DBXM(...) {}
-#define DBXMLN(...) {}
-#define DBXMF(...) {}
-#endif
 
 // Oled 128x32 on my i2c
 int cntOled = 0;
@@ -74,7 +65,7 @@ int8_t wifiLost = 0;
 
 // Time facilities
 const long gmtOffset_sec     = 3600;
-const int daylightOffset_sec = 3600;
+const int daylightOffset_sec = 3600; // heure d'ete 3600
 struct tm timeinfo;            // time struct
 const char* ntpServer        = "pool.ntp.org";
 
@@ -102,10 +93,6 @@ String getDate(int sh = -1){
   }
   return String(temp);
 }
-
-// DHT22 pin 13
-//#define pinEXT     13 // GPIO13
-//#define pinEXTpwd  21 // GPIO21
 
 // Boiler flame
 #define pinFlameAo 36 // ADC1_0 A
@@ -140,8 +127,8 @@ long previousMillis = 0;
 Jeedom jeedom("/cfJeedom.json");
 bool saveConfigJeedom = false;
 // Devices from virtual jeedom
-const int idTemp   = 1784; // Not used
-const int idHumi   = 1785; // Not used
+const int idTemp   = 1784; //! Not used
+const int idHumi   = 1785; //! Not used
 const int idFlam   = 1786; // On Off Flam
 const int idPower  = 1816; // Percent Flam
 const int idDebitA = 1811; // l/m
@@ -156,8 +143,8 @@ bool onChanged = true;
 #define SEND2JEEDOM(na,wc,rj,id,va) { \
   if (wc == WL_CONNECTED && rj == HTTP_CODE_OK) { \
     rj = jeedom.sendVirtual(id, va); \
-    if (rj != HTTP_CODE_OK) { \
-      DBXMF("%s %s Jeedom(id:%d) error (%s)  \n\r", getDate().c_str(), na, id, httpStatus(rj)); \
+    if (rj != HTTP_CODE_OK && Serial.availableForWrite() ) { \
+      Serial.printf("%s %s Jeedom(id:%d) error (%s)\n\r", getDate().c_str(), na, id, frame.httpStatus(rj) ); \
     }\
   }\
 }
@@ -169,30 +156,29 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
 
 // Action from JEEDOM
 void actionOpen() {
+  LOG("%s -Action OPEN valve.", getDate().c_str());
   isValveClosed = false;
   onChanged = true;
-  LOG("%s -Action OPEN valve.", getDate().c_str());
 }
 void actionClose() {
+  LOG("%s -Action CLOSE valve.", getDate().c_str());
   isValveClosed = true;
   onChanged = true;
-  LOG("%s -Action CLOSE valve.", getDate().c_str());
 }
 void actionReset() {
+  LOG("%s -Action RESET valve.", getDate().c_str());
   cntFluxBadSec = 0;
   isValveClosed = false;
   onChanged = true;
-  LOG("%s -Action RESET valve.", getDate().c_str());
 }
 void actionSetTotal(uint64_t val) {
   LOG("%s -Action SET total at %llu m3", getDate().c_str(), val);
-  flux.interruptCounter = val;
+  flux.magnetHallPluse = val;
   onChanged = true;
 }
 
 // -------- Web transformation into Get Set functions ------------- 
 #include "eau.h"
-
 
 int retJeedom = HTTP_CODE_OK;
 void setDsp() {
@@ -209,9 +195,6 @@ void setDsp() {
     else u8g2.drawXBMP(48,0,14,14,valve_1);  
     // Symbole
     u8g2.setFont(u8g2_font_unifont_t_symbols);
-    // Liter
-    // if (flux.interruptCounter%1)  u8g2.drawUTF8(65, 14, "☐"); 
-    // else u8g2.drawUTF8(65, 14, "☑");
     // Text
     u8g2.setFont(u8g2_font_7x14_tf);
     OLEDF( 73,14, "%s", getTime().c_str());
@@ -264,11 +247,49 @@ void configModeCallback (WiFiManager *myWiFiManager) {
   LOG("%s -ACCESS POINT actived MAC:%s IP:%s", getDate().c_str(), myWiFiManager->getConfigPortalSSID().c_str() ,  WiFi.softAPIP().toString().c_str() );
 }
 
+// Interrupt Sevice Routine for flux ------------------------
+static xQueueHandle gpio_evt_queue = NULL;
+
+static void IRAM_ATTR irq0(){
+  uint32_t gpio_num = irqPinIR;
+  xQueueSendFromISR(gpio_evt_queue, &gpio_num, NULL);
+}
+
+static void IRAM_ATTR irq1(){
+  uint32_t gpio_num = irqPinHall;
+  xQueueSendFromISR(gpio_evt_queue, &gpio_num, NULL);
+}
+
+static void taskIsrFLux(void* arg) {
+  uint32_t io_num;
+  for(;;) {
+    if(xQueueReceive(gpio_evt_queue, &io_num, portMAX_DELAY)) {
+      flux.irq(io_num, gpio_get_level((gpio_num_t)io_num));
+    }
+  }
+}
+
+void initIsrFlux(){
+  //create a queue to handle gpio event from isr
+  gpio_evt_queue = xQueueCreate(10, sizeof(uint32_t));
+  //start gpio task
+  xTaskCreate(taskIsrFLux, "taskIsrFLux", 2048, NULL, 10, NULL);
+  //set isr on InfraRed paddle wheel counter
+  pinMode(irqPinIR, INPUT_PULLUP);
+ // pinMode(irqPinIR, INPUT);  
+  attachInterrupt(digitalPinToInterrupt(irqPinIR), irq0, RISING);
+  //Set isr on Magnet hall detector 
+  //pinMode(GPIO_INPUT_IO_1, INPUT_PULLUP);
+  pinMode(irqPinHall, INPUT);  
+  attachInterrupt(digitalPinToInterrupt(irqPinHall), irq1, CHANGE);
+}
+
+// setup -------------------------------------------------------------------------
 void setup() {
 #ifdef DEBUG_MAIN
   Serial.begin(115200);
+  Serial.printf("Start setup Ver:%s\n\r",VERSION);
 #endif
-  DBXMF("Start setup Ver:%s\n\r",VERSION);
   // Start Oled 128x32
   u8g2.begin();
   OLEDC();
@@ -295,11 +316,13 @@ void setup() {
   });
   frame.externalHtmlTools="Specific home page is visible at :<a class='button' href='/eau'>Eau Page</a>";
   // Init time
-  configTime(gmtOffset_sec, daylightOffset_sec, ntpServer); //init and get the time
+  configTime(gmtOffset_sec, jeedom.config.daylightoffset, ntpServer); //init and get the time
   wifiLost = 0;
   // IRQ
   flux.setup(jeedom.config.waterM3, jeedom.config.fluxReference);
+  initIsrFlux();
   isValveClosed = !jeedom.config.valveOpen;
+  keyLedBuz.initValve(isValveClosed);
   // Start time
   getLocalTime(&timeinfo);
   // Wait get time delay
@@ -375,16 +398,16 @@ void loop() {
     // Valve state analysis
     if (isValveClosed==false) {
       if (flux.isChanged(&timeinfo, jeedom.config.fluxReference)) {
-        //portENTER_CRITICAL(&mux);
-        LOG("%s -Flux.isCh irq: %lu magnet: %d paddle: %d p/l lxm: %.1f Eau: %s Valve: %s", 
+        /*
+        LOG("%s -Flux.isCh irqMagnet: %llu paddle: %llu p/l lxm: %.1f Eau: %s Valve: %s", 
                 getDate().c_str(),
-                flux.interruptCounter, 
-                magnetHallPluse, 
-                paddleWheelPluseDsp, 
+               // flux.interruptCounter, 
+                flux.magnetHallPluse, 
+                flux.paddleWheelPulse, 
                 flux.literPerMinute, 
                 ((flux.state)?("On "):("Off")), 
                 ((isValveClosed)?("Close"):("Open")) );
-        //portEXIT_CRITICAL(&mux);
+        */
         onChanged = true;
       }
       if (flux.state == true) {
@@ -424,7 +447,7 @@ void loop() {
     }
     // every day. update Gaz power & Water counter & record jeedom config if changed
     boolean newday = ( (timeinfo.tm_hour == 23) && (timeinfo.tm_min == 59) && (timeinfo.tm_sec == 55));
-    jeedom.config.waterM3 = ((float)flux.interruptCounter/(jeedom.config.fluxReference * 1000.0) );
+    jeedom.config.waterM3 = ((float)flux.magnetHallPluse/(jeedom.config.fluxReference * 1000.0) );
     jeedom.config.valveOpen = !isValveClosed;
     if ( onChanged || newday ) {
       SEND2JEEDOM("JFlux.isChanged", wifistat, retJeedom, idDebitA, flux.literPerMinute   );
@@ -442,6 +465,9 @@ void loop() {
       hlog.flush();
       saveConfigJeedom = false;
     }
+#ifdef DEBUG_MAIN
+    Serial.printf("%s onChanged:%d isValveClosed=%d \n\r",getDate().c_str(), onChanged,isValveClosed);
+#endif
     // oled display
     setDsp();
   } // End second

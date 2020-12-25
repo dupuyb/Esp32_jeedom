@@ -29,13 +29,17 @@ public:
 
   }
 
+  void initValve(boolean state){
+    valveStat = state;
+  } 
+
   // Set Valve and return true if state changed
   boolean setValve(boolean state) {
     boolean ret = (state != valveStat);
     if (state) {
       digitalWrite (pinValve, LOW); // ON
     } else {
-      digitalWrite(pinValve, HIGH);
+      digitalWrite(pinValve, HIGH); // OFF
     }
     valveStat = state;
     return ret;

@@ -13,7 +13,8 @@ struct ConfigJeedom {
   float fluxReference; // impulsion per liter default 2
   float openDelay; // Delay of flow is continus
   float waterM3; // total counter initial value default 0
-  bool valveOpen; // true is valve is open 
+  bool  valveOpen; // true is valve is open 
+  int   daylightoffset; // daylightOffset_sec
 };
 
 class Jeedom {
@@ -38,6 +39,7 @@ public:
     rootcfg["openDelay"] = config.openDelay;
     rootcfg["waterM3"] = config.waterM3;
     rootcfg["valveOpen"] = config.valveOpen; 
+    rootcfg["daylightOffset"] = config.daylightoffset;
     // ArduinoJson 6
     serializeJson(rootcfg, cfJeedomjson);
     file.print(cfJeedomjson);
@@ -64,7 +66,8 @@ public:
       config.fluxReference = rootcfg["fluxReference"] | 1.0; // default 2 pulse per liter
       config.openDelay = rootcfg["openDelay"] | 15.0; // default 15 minutes
       config.waterM3 = rootcfg["waterM3"] | 0.000; // Read local counter
-      config.valveOpen = rootcfg["valveOpen"] | true; // vslvr state
+      config.valveOpen = rootcfg["valveOpen"] | true; // valve state
+      config.daylightoffset = rootcfg["daylightOffset"] | 0; // Summer time 3600=Summer 0=Winter
       if (error)  saveConfigurationJeedom();
     }
     ccrConfig = getCcrConfig();
