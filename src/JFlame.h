@@ -10,7 +10,7 @@ public:
     pinMode(pinFlameAo, INPUT);
   }
 
-  // Call every seconds anti-rebond
+  // Call every seconds anti-bounds
   bool isChanged(struct tm *time, uint32_t limit) {
     bool changed = false;
     value = ((value * 2) + analogRead(pinFlameAo)) / 3; // new value 33% old value 66% ADC 12 bits

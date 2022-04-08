@@ -29,6 +29,10 @@ public:
     if (!file) {
        return false;
     }
+    if (config.waterM3==0) { // BUG
+      file.close();
+      return false;
+    }
     String cfJeedomjson;
     // ArduinoJson 6
     DynamicJsonDocument rootcfg(500);
@@ -59,7 +63,7 @@ public:
       file.readBytes(buf.get(), size);
       // ArduinoJson 6
       DynamicJsonDocument rootcfg(1024);
-      auto error = deserializeJson(rootcfg, buf.get());
+      /*auto error = */ deserializeJson(rootcfg, buf.get());
       strlcpy(config.host, rootcfg["host"] | "192.168.1.117", sizeof(config.host));
       config.port = rootcfg["port"] | 80;
       strlcpy(config.apiKey, rootcfg["apiKey"] | "unknown", sizeof(config.apiKey));
@@ -68,7 +72,7 @@ public:
       config.waterM3 = rootcfg["waterM3"] | 0.000; // Read local counter
       config.valveOpen = rootcfg["valveOpen"] | true; // valve state
       config.daylightoffset = rootcfg["daylightOffset"] | 0; // Summer time 3600=Summer 0=Winter
-      if (error)  saveConfigurationJeedom();
+      // if (error)  saveConfigurationJeedom();
     }
     ccrConfig = getCcrConfig();
   }
@@ -82,7 +86,7 @@ public:
     loadConfigurationJeedom();
     virtualbaseurl = "/core/api/jeeApi.php?apikey=";
     virtualbaseurl += config.apiKey;
-    virtualbaseurl += "&type=virtual&id=";
+    virtualbaseurl += "&type=event&plugin=virtual&id=";
   }
 
   int sendVirtual(int id, float val) {

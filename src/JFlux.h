@@ -28,17 +28,16 @@ public:
     }
   }
 
-   void setup(float totWaterM3, float implusionPerLitre) {
+  void setup(float totWaterM3, float implusionPerLitre) {
     magnetHallPluse = (uint64_t)(totWaterM3 * 1000.0 * (float)implusionPerLitre); // last value recorded in jeedom
     magnetHallPulseOld = magnetHallPluse;
-   }
+  }
 
   // _-------_--------__----- 1,6-1,7 sec Low 7-9 sec High
   boolean isChanged(struct tm *time, float implusionPerLitre) {
     if (magnetHallPulseOld != magnetHallPluse) { // Hall sensor
       magnetHallPulseOld = magnetHallPluse;
     } 
-    state = lastState;
     if (paddleWheelPulseOld != paddleWheelPulse) { // PaddleWheel
       unsigned long ts = millis();
       // compute l/m ((v0-v1)/100) * ((60000/t0-t1)) 
@@ -75,17 +74,26 @@ public:
       irLast=v;
     }
   }
-  boolean  state = false;
-  float    literPerMinute = 0;
-  uint64_t paddleWheelPulse;
-  uint64_t magnetHallPluse;
 
-private :
+  float getLiterPerMinute() { return literPerMinute; }
+
+  boolean getState() { return state; }
+ 
+  uint64_t getMagnetHallPluse() { return magnetHallPluse;}
+  void setMagnetHallPluse(uint64_t v) { magnetHallPluse = v;}
+
+  uint64_t getPaddleWheelPulse() { return paddleWheelPulse;}
+
+ private :
+  float    literPerMinute=0;
+  uint64_t paddleWheelPulse=0;
+  uint64_t magnetHallPluse=0;
+  boolean  state ;
   int pinHallSensor; // pin Hall detector
   int pinPaddleWheel; // pin IR detector
   boolean lastState = false;
-  uint64_t magnetHallPulseOld = 0; // Last implusionPerLitre at every seconds
-  uint64_t paddleWheelPulseOld =0;
+  uint64_t magnetHallPulseOld=0; // Last implusionPerLitre at every seconds
+  uint64_t paddleWheelPulseOld=0;
   // Add Isr
   unsigned long timeHall;
   unsigned long timeIR;

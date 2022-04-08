@@ -4,7 +4,7 @@
 class JKeyLedBuz {
 
 public:
-  JKeyLedBuz(int pr, int pg, int pb, int bu, int bd, int pv, int pbz){
+  JKeyLedBuz(int pr, int pg, int pb, int bu, int bd, int pv, int pbz, int pss){
     pinBtUp  = bu;
     pinBtDn  = bd;
     pinRed   = pr;
@@ -12,6 +12,7 @@ public:
     pinBlue  = pb;
     pinValve = pv;
     pinBuzzer = pbz;
+    pinSolidS = pss;
     ledcSetup(0, 1500, 8); // Led channel 0 Red
     ledcSetup(1, 1500, 8); // Led channel 1 Green
     ledcSetup(2, 1500, 8); // Led channel 2 Blue
@@ -26,7 +27,8 @@ public:
     pinMode(pinValve, OUTPUT);      // Relay Valve
     digitalWrite(pinValve, HIGH);    // initial state
     pinMode(pinBuzzer, OUTPUT); // Buzzer
-
+    pinMode(pinSolidS, OUTPUT); // initial value solidstate
+    digitalWrite(pinSolidS, HIGH);
   }
 
   void initValve(boolean state){
@@ -36,10 +38,16 @@ public:
   // Set Valve and return true if state changed
   boolean setValve(boolean state) {
     boolean ret = (state != valveStat);
+    // if  stat changing Stop valve
+    if (ret) // Stop valve
+      digitalWrite(pinSolidS, LOW);  // OFF SOLIDSTATERELAY
+    else
+      digitalWrite(pinSolidS, HIGH);  // OFF SOLIDSTATERELAY
+    // Put other state
     if (state) {
-      digitalWrite (pinValve, LOW); // ON
+      digitalWrite (pinValve, LOW); // DIR on
     } else {
-      digitalWrite(pinValve, HIGH); // OFF
+      digitalWrite(pinValve, HIGH); // DIR off
     }
     valveStat = state;
     return ret;
@@ -116,6 +124,7 @@ public:
   uint8_t pinBlue;
   uint8_t pinValve;
   uint8_t pinBuzzer;
+  uint8_t pinSolidS;
   boolean valveStat = false;
   boolean flip = true;
   uint8_t lastKey = 0;

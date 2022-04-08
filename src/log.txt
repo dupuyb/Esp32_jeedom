@@ -1,14 +1,13 @@
 01/06/20 0900 - 2.5.3 - Add Capacity 100nF on IR irq Gnd signal.
-01/06/20 1200 - 2.5.4 - Add RC on Hall sensor.
-01/06/20 1630 - 2.5.5 - Add RC on all sensor + more filting on +5v and +3.3v.
-              - Demontage car sa plante ....
+01/06/20 1200 - 2.5.4 - Add RC on Hall sensors.
+01/06/20 1630 - 2.5.5 - Add RC on all sensors + more filtering on +5v and +3.3v.
+              - Démontage, car ça plante ....
 07/06/20 2040 - 2.5.9 - Chgt by ISR for both sensor (Hall, IR) 
               - Bad counting on IR Comparator must be adjusted.
 08/06/20 2047 - 2.6.A - Compute correct l/m
-10/06/20 0900 - 2.6.B - Append fix more then 5sec to declare OFF.
-25/10/20 1700 - 2.6.C - Plus le LOG sur la consomation (main.cpp:400)
-
-Reste a fixer:
-Il reste un probleme en cas de Vanne ON le CPU reboot (Probleme de decouplage?)
+10/06/20 0900 - 2.6.B - Append fix more than 5 sec to declare OFF.
+25/10/20 1700 - 2.6.C - Plus le LOG sur la consommation (main.cpp:400)
+07/01/21 1100 - 2.7.3 - Fix: problème en cas de Vanne ON le CPU reboot (Add Solid State relay)
+12/03/22 9:30 - 2.7.7 - Fix Jeedom (acces nom autorisée)
 
               

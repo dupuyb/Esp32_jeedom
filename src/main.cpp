@@ -6,7 +6,7 @@
 FrameWeb frame;
 
 #include "HLog.h"
-HLog hlog(150, 15000, true);
+HLog hlog(150);
 
 #include <time.h>
 #include "Jeedom.h"
@@ -23,7 +23,7 @@ HLog hlog(150, 15000, true);
   hlog.append(temp); \
 }  
 
-const char VERSION[] ="2.6.D";
+const char VERSION[] ="2.7.7";
 // Debug macro 
 // #define DEBUG_MAIN
 
@@ -99,15 +99,26 @@ String getDate(int sh = -1){
 JFlame flame(pinFlameAo);
 
 // FLux detector
+int fluxStart = -1;
 float tmpLiterPerMinute;          // On change on liter per minute
 uint16_t cntFluxBadSec = 0;       // Count how many seconds the flux is flowing
 boolean isValveClosed  = false;   // Valve must be closed or opened
+
+String getMMSS() {
+  static char temp[10];
+  int mm = (int)cntFluxBadSec/60;
+  int ss = (int)cntFluxBadSec - (mm*60);
+  snprintf(temp, 10, "%dm%02ds", mm, ss);
+  return String(temp);
+}
+
 // IRQ
 #define irqPinHall 34
 #define irqPinIR 13
 JFlux flux(irqPinHall, irqPinIR);
 
-// Relay Valve Button LEd pins
+// Relay Valve Button LEd pins valve 5Nn 300sec
+#define pinSS 21 // SoldState Relay
 #define pinVD 14 // Valve Direction
 #define pinBz 18 // Buzzer
 #define pinU  05 // Button Up
@@ -116,7 +127,7 @@ JFlux flux(irqPinHall, irqPinIR);
 #define pinR 16 // Led Red
 #define pinG 04 // Led Green
 #define pinB 15 // Led blue
-JKeyLedBuz keyLedBuz(pinR, pinG, pinB, pinU, pinD, pinVD, pinBz);
+JKeyLedBuz keyLedBuz(pinR, pinG, pinB, pinU, pinD, pinVD, pinBz, pinSS);
 uint8_t buttonPressed = 0; // 1=BtUp 2=BtDown 3=Both
 
 // Internal led
@@ -135,7 +146,7 @@ const int idDebitA = 1811; // l/m
 const int idDebitT = 1812; // Total m3
 const int idDebitD = 1823; // Flux On/Off
 const int idValve  = 1825; // Open Closed
-bool onChanged = true;
+int onChanged = 2;
 // #define JEEDOM_DISLABED
 #ifdef JEEDOM_DISLABED
 #define SEND2JEEDOM(na,wc,rj,id,va) 
@@ -158,23 +169,23 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
 void actionOpen() {
   LOG("%s -Action OPEN valve.", getDate().c_str());
   isValveClosed = false;
-  onChanged = true;
+  onChanged = 2;
 }
 void actionClose() {
   LOG("%s -Action CLOSE valve.", getDate().c_str());
   isValveClosed = true;
-  onChanged = true;
+  onChanged = 2;
 }
 void actionReset() {
   LOG("%s -Action RESET valve.", getDate().c_str());
   cntFluxBadSec = 0;
   isValveClosed = false;
-  onChanged = true;
+  onChanged = 2;
 }
 void actionSetTotal(uint64_t val) {
   LOG("%s -Action SET total at %llu m3", getDate().c_str(), val);
-  flux.magnetHallPluse = val;
-  onChanged = true;
+  flux.setMagnetHallPluse( val );
+  onChanged = 2;
 }
 
 // -------- Web transformation into Get Set functions ------------- 
@@ -201,10 +212,10 @@ void setDsp() {
     switch (cntOled) {
       case 0: /* OLEDF( 0, 31, "Temp:%2.0f°C Hum:%2.0f%%", temperatureDHT, humidityDHT); break; */
       case 1: OLEDF( 0, 31, "Eau: %.3f m3", jeedom.config.waterM3); break;
-      case 2: OLEDF( 0, 31, "Vanne: %s", (isValveClosed)?("Fermé"):("Ouverte") ); break;
+      case 2: OLEDF( 0, 31, "Vanne: %s %s", (isValveClosed)?("OFF"):("ON"), getMMSS().c_str() ); break;
       case 3: OLEDF( 0, 31, "Flamme: %s", (flame.state)?("Allumée"):("Eteinte") ); break;
       case 4: OLEDF( 0, 31, "Wifi:%s", WiFi.localIP().toString().c_str() ); break;
-      case 5: OLEDF( 0, 31, "Mac: %s", WiFi.macAddress().c_str() ); break;
+      case 5: OLEDF( 0, 31, "Mac:%s", WiFi.macAddress().c_str() ); break;
       case 6: OLEDF( 0, 31, "Jeedom: %s", ((retJeedom == HTTP_CODE_OK)?("est OK"):("Erreurs")) ); break;
       case 7: OLEDF( 0, 31, "Date: %s", getDate(0).c_str() ); break;
       case 8: OLEDF( 0, 31, "Version: %s", VERSION ); break;
@@ -227,6 +238,7 @@ void watchdog(void *pvParameter) {
       if (wdCounter == 401 ) {
         LOG("%s -WatchDog Wifi:%s after:%d sec. -> REBOOT.", getDate().c_str(), frame.wifiStatus(WiFi.status()), (wdCounter*5) );
         hlog.flush();
+        jeedom.saveConfigurationJeedom();
       } else {
         // Perhapse force ??? WiFi.begin(ssid, password);
         ESP.restart(); // Restart after 5sec * 180 => 15min
@@ -378,10 +390,10 @@ void loop() {
     if (wifistat != WL_CONNECTED) {
       wifiLost++;
       if (wifiLost==10) {
-        LOG("%s -WiFi Lost:%s wifiLost:%d sec. jeeErrCnt:%d localIP:%s", getDate().c_str(), frame.wifiStatus(wifistat), wifiLost, jeedom.getErrorCounter(), WiFi.localIP().toString().c_str() );
+       // LOG("%s -WiFi Lost:%s wifiLost:%d sec. jeeErrCnt:%d localIP:%s", getDate().c_str(), frame.wifiStatus(wifistat), wifiLost, jeedom.getErrorCounter(), WiFi.localIP().toString().c_str() );
       }
       if (wifiLost == 50) {
-        LOG("%s -WiFi disconnect OK after 50s (%s).",getDate().c_str(), frame.wifiStatus(wifistat));
+       // LOG("%s -WiFi disconnect OK after 50s (%s).",getDate().c_str(), frame.wifiStatus(wifistat));
         saveConfigJeedom = true;
         WiFi.disconnect();
       }
@@ -398,20 +410,12 @@ void loop() {
     // Valve state analysis
     if (isValveClosed==false) {
       if (flux.isChanged(&timeinfo, jeedom.config.fluxReference)) {
-        /*
-        LOG("%s -Flux.isCh irqMagnet: %llu paddle: %llu p/l lxm: %.1f Eau: %s Valve: %s", 
-                getDate().c_str(),
-               // flux.interruptCounter, 
-                flux.magnetHallPluse, 
-                flux.paddleWheelPulse, 
-                flux.literPerMinute, 
-                ((flux.state)?("On "):("Off")), 
-                ((isValveClosed)?("Close"):("Open")) );
-        */
-        onChanged = true;
+        onChanged = 2;
       }
-      if (flux.state == true) {
-        if ( (cntFluxBadSec / 60) < jeedom.config.openDelay) {
+      if (flux.getState()) {
+        if (fluxStart==-1) fluxStart=flux.getMagnetHallPluse();
+        cntOled = 2; // Force Dsp Vanne
+        if ( ((float)cntFluxBadSec / 60.0) < jeedom.config.openDelay) {
           cntFluxBadSec++;
           keyLedBuz.rgb = 0x0000FF;
         } else {
@@ -419,17 +423,27 @@ void loop() {
           isValveClosed = true;   // Close valve
         }
       } else {
+        if (cntFluxBadSec>0) {
+          if (keyLedBuz.rgb==0x0000FF) {
+            // DEB£UG Config at 0
+           //  int litre = (flux.getMagnetHallPluse() - fluxStart ) * jeedom.config.fluxReference;
+            fluxStart = -1;
+            // if (litre>0) { LOG("%s -Flux durant:%s pour %dl", getDate().c_str(),  getMMSS().c_str(), litre ); }
+            // else { LOG("%s -Flux durant:%s" , getDate().c_str(),  getMMSS().c_str() ); }
+          }
+          cntFluxBadSec--;
+        }
         keyLedBuz.rgb = 0x007700;
-        if (cntFluxBadSec>0) cntFluxBadSec--;
       }
     } else {
       // valve is closed Red is selected
       keyLedBuz.rgb = 0x770000;
     }
+
     // Action USER valve And Jeedom notify
     if (keyLedBuz.setValve(isValveClosed)) {
       SEND2JEEDOM("Set valve", wifistat, retJeedom, idValve, !isValveClosed);
-      onChanged = true;
+      onChanged = 2;
     }
     // Boiler is changed
     if (flame.isChanged(&timeinfo, 1000)) { // hysteresis = 1000/10 * 2
@@ -439,25 +453,25 @@ void loop() {
     if (flame.state)  {
       keyLedBuz.rgb2 = 0xFF7700; // change flash by red
     } else {
-       keyLedBuz.rgb2 = 0x0;
+      keyLedBuz.rgb2 = 0x0;
     }
-    if (flux.literPerMinute!=tmpLiterPerMinute) {
-      tmpLiterPerMinute = flux.literPerMinute;
-      SEND2JEEDOM("JFlux.isChanged", wifistat, retJeedom, idDebitA, flux.literPerMinute);
+    if (flux.getLiterPerMinute()!=tmpLiterPerMinute) {
+      tmpLiterPerMinute = flux.getLiterPerMinute();
+      SEND2JEEDOM("JFlux.isChanged", wifistat, retJeedom, idDebitA, flux.getLiterPerMinute());
     }
     // every day. update Gaz power & Water counter & record jeedom config if changed
     boolean newday = ( (timeinfo.tm_hour == 23) && (timeinfo.tm_min == 59) && (timeinfo.tm_sec == 55));
-    jeedom.config.waterM3 = ((float)flux.magnetHallPluse/(jeedom.config.fluxReference * 1000.0) );
+    jeedom.config.waterM3 = ((float)flux.getMagnetHallPluse()/(jeedom.config.fluxReference * 1000.0) );
     jeedom.config.valveOpen = !isValveClosed;
-    if ( onChanged || newday ) {
-      SEND2JEEDOM("JFlux.isChanged", wifistat, retJeedom, idDebitA, flux.literPerMinute   );
-      SEND2JEEDOM("JFlux.isChanged", wifistat, retJeedom, idDebitD, !flux.state           );
-      SEND2JEEDOM("JFlux.isChanged", wifistat, retJeedom, idValve , !isValveClosed        );
+    if ( onChanged>0 || newday ) {
+      SEND2JEEDOM("JFlux.isChanged", wifistat, retJeedom, idDebitA, flux.getLiterPerMinute()   );
+      SEND2JEEDOM("JFlux.isChanged", wifistat, retJeedom, idDebitD, !flux.getState()           );
+      SEND2JEEDOM("JFlux.isChanged", wifistat, retJeedom, idValve , jeedom.config.valveOpen );
       SEND2JEEDOM("JFlux.isChanged", wifistat, retJeedom, idDebitT, jeedom.config.waterM3 );
-      if ( newday /* && jeedom.isCcrChanged()*/ )  {
+      if ( newday && onChanged==1 /* && jeedom.isCcrChanged()*/ )  {
         saveConfigJeedom = true;
       }
-      onChanged = false;
+      onChanged--;
     }
     // Optional action
     if (saveConfigJeedom ) {
