@@ -6,7 +6,7 @@
 FrameWeb frame;
 
 #include "HLog.h"
-HLog hlog(150);
+HLog hlog(100);
 
 #include <time.h>
 #include "Jeedom.h"
@@ -23,7 +23,7 @@ HLog hlog(150);
   hlog.append(temp); \
 }  
 
-const char VERSION[] ="2.7.7";
+const char VERSION[] ="2.7.8";
 // Debug macro 
 // #define DEBUG_MAIN
 
@@ -33,6 +33,7 @@ int cntOled = 0;
 #define pinSCL  22
 #define i2cADD  0x3c
 U8G2_SSD1306_128X32_UNIVISION_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE, /* clock=*/ pinSCL, /* data=*/ pinSDA);   // pin remapping with ESP8266 HW I2C
+
 #define OLEDC() u8g2.clearBuffer(); 
 #define OLEDS() u8g2.sendBuffer();
 #define OLEDF(x,y,format, ...) { \
@@ -92,6 +93,11 @@ String getDate(int sh = -1){
     break;
   }
   return String(temp);
+}
+
+bool isNight() {
+  if (timeinfo.tm_hour>21 && timeinfo.tm_hour<7 ) return true;
+  return false;
 }
 
 // Boiler flame
@@ -155,7 +161,7 @@ int onChanged = 2;
   if (wc == WL_CONNECTED && rj == HTTP_CODE_OK) { \
     rj = jeedom.sendVirtual(id, va); \
     if (rj != HTTP_CODE_OK && Serial.availableForWrite() ) { \
-      Serial.printf("%s %s Jeedom(id:%d) error (%s)\n\r", getDate().c_str(), na, id, frame.httpStatus(rj) ); \
+      LOG("%s %s Jeedom(id:%d) error (%s)\n\r", getDate().c_str(), na, id, frame.httpStatus(rj) ); \
     }\
   }\
 }
@@ -193,6 +199,11 @@ void actionSetTotal(uint64_t val) {
 
 int retJeedom = HTTP_CODE_OK;
 void setDsp() {
+  if (isNight()) {
+      u8g2.setContrast(0);
+      u8g2.clear();
+  } else {
+    u8g2.setContrast(0xFF);
     // Set Oled dsp
     OLEDC();
     // Icons
@@ -226,7 +237,9 @@ void setDsp() {
     if ( (timeinfo.tm_sec % 3)==0 ) {
        cntOled++;
     }
+  }
 }
+
 // WatchDog
 uint32_t wdCounter = 0;
 void watchdog(void *pvParameter) {

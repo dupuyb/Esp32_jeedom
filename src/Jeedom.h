@@ -64,7 +64,7 @@ public:
       // ArduinoJson 6
       DynamicJsonDocument rootcfg(1024);
       /*auto error = */ deserializeJson(rootcfg, buf.get());
-      strlcpy(config.host, rootcfg["host"] | "192.168.1.117", sizeof(config.host));
+      strlcpy(config.host, rootcfg["host"] | "192.168.2.254", sizeof(config.host));
       config.port = rootcfg["port"] | 80;
       strlcpy(config.apiKey, rootcfg["apiKey"] | "unknown", sizeof(config.apiKey));
       config.fluxReference = rootcfg["fluxReference"] | 1.0; // default 2 pulse per liter

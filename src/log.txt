@@ -9,5 +9,5 @@
 25/10/20 1700 - 2.6.C - Plus le LOG sur la consommation (main.cpp:400)
 07/01/21 1100 - 2.7.3 - Fix: problème en cas de Vanne ON le CPU reboot (Add Solid State relay)
 12/03/22 9:30 - 2.7.7 - Fix Jeedom (acces nom autorisée)
-
+26/06/22      - 2.7.8 - Append isNight() to switch off display
               
