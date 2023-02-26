@@ -78,6 +78,7 @@ String getTime() {
 }
 
 String rebootTime;
+String recordTime;
 // Date as europeen format
 String getDate(int sh = -1){
   static char temp[20];
@@ -153,6 +154,7 @@ const int idDebitT = 1812; // Total m3
 const int idDebitD = 1823; // Flux On/Off
 const int idValve  = 1825; // Open Closed
 int onChanged = 2;
+
 // #define JEEDOM_DISLABED
 #ifdef JEEDOM_DISLABED
 #define SEND2JEEDOM(na,wc,rj,id,va) 
@@ -230,7 +232,8 @@ void setDsp() {
       case 6: OLEDF( 0, 31, "Jeedom: %s", ((retJeedom == HTTP_CODE_OK)?("est OK"):("Erreurs")) ); break;
       case 7: OLEDF( 0, 31, "Date: %s", getDate(0).c_str() ); break;
       case 8: OLEDF( 0, 31, "Version: %s", VERSION ); break;
-      case 9: OLEDF( 0, 31, "Raz:%s", rebootTime.c_str() ); break;
+      case 9: OLEDF( 0, 31, "Rec:%s", recordTime.c_str() ); break;
+      case 10:OLEDF( 0, 31, "Raz:%s", rebootTime.c_str() ); break;
       default: cntOled=0; break; 
     }
     OLEDS();
@@ -488,7 +491,8 @@ void loop() {
     }
     // Optional action
     if (saveConfigJeedom ) {
-      jeedom.saveConfigurationJeedom();
+      if (jeedom.saveConfigurationJeedom())
+        recordTime = getDate(1);
       hlog.flush();
       saveConfigJeedom = false;
     }
