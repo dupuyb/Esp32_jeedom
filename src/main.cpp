@@ -23,7 +23,7 @@ HLog hlog(100);
   hlog.append(temp); \
 }  
 
-const char VERSION[] ="2.7.8";
+const char VERSION[] ="2.8.0";
 // Debug macro 
 // #define DEBUG_MAIN
 
