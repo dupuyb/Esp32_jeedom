@@ -35,7 +35,7 @@ public:
     }
     String cfJeedomjson;
     // ArduinoJson 6
-    DynamicJsonDocument rootcfg(500);
+    JsonDocument rootcfg;
     rootcfg["host"] = config.host;
     rootcfg["port"] = config.port;
     rootcfg["apiKey"] = config.apiKey;
@@ -61,8 +61,8 @@ public:
       size_t size = file.size();
       std::unique_ptr<char[]> buf(new char[size]);
       file.readBytes(buf.get(), size);
-      // ArduinoJson 6
-      DynamicJsonDocument rootcfg(1024);
+      // ArduinoJson 7
+      JsonDocument rootcfg;
       /*auto error = */ deserializeJson(rootcfg, buf.get());
       strlcpy(config.host, rootcfg["host"] | "192.168.2.254", sizeof(config.host));
       config.port = rootcfg["port"] | 80;
