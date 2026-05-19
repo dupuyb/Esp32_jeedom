@@ -1,8 +1,8 @@
 #ifndef JFlux_h
 #define JFlux_h
 
-#define ANTIBOUNCEH 1000 //  _-------_--------_----- 1,6sec. Low and 7sec. High for 1 liter
-#define ANTIBOUNCEI 20   // 20ms => 50 Pluses/sec => 490 P/liter
+#define ANTIBOUNCEH 1000 // Hall debounce in ms (sensor period roughly 1.6s low + 7s high per liter)
+#define ANTIBOUNCEI 20   // IR debounce in ms (up to ~50 pulses/s)
 
 class JFlux {
 public:
@@ -12,8 +12,7 @@ public:
     pinPaddleWheel = q;
   }
 
-  // _-------_--------_----- 1,6sec. Low and 7sec. High Max 7l/m
-  // New irq AND time > 0.5 sec
+  // Poll debounced ISR shadow values and update pulse counters.
   void loop() {
     unsigned long now = millis();
     if ( (now - timeHall) > ANTIBOUNCEH && hallCrt!=hallLast) {
@@ -29,27 +28,27 @@ public:
   }
 
   void setup(float totWaterM3, float implusionPerLitre) {
-    magnetHallPluse = (uint64_t)(totWaterM3 * 1000.0 * (float)implusionPerLitre); // last value recorded in jeedom
+    magnetHallPluse = (uint64_t)(totWaterM3 * 1000.0 * (float)implusionPerLitre); // Last persisted counter from Jeedom config
     magnetHallPulseOld = magnetHallPluse;
   }
 
-  // _-------_--------__----- 1,6-1,7 sec Low 7-9 sec High
+  // Detect flow state transitions and compute liters per minute.
   boolean isChanged(struct tm *time, float implusionPerLitre) {
     if (magnetHallPulseOld != magnetHallPluse) { // Hall sensor
       magnetHallPulseOld = magnetHallPluse;
     } 
     if (paddleWheelPulseOld != paddleWheelPulse) { // PaddleWheel
       unsigned long ts = millis();
-      // compute l/m ((v0-v1)/100) * ((60000/t0-t1)) 
-      float dv = (float)(paddleWheelPulse - paddleWheelPulseOld); // Difference en litre
-      float dt = 60000.0/(float)(ts - to); // milli-seconde 1000-61000= 1 minute
+      // Compute liters/min from pulse delta and elapsed time.
+      float dv = (float)(paddleWheelPulse - paddleWheelPulseOld); // Pulse delta
+      float dt = 60000.0/(float)(ts - to); // Scale to one minute
       literPerMinute = dt * dv;
       paddleWheelPulseOld = paddleWheelPulse;
       to = ts;
       state = true;
       cnt=0;
     } else {
-      if (cnt>5) { // fix more than 5 sec
+      if (cnt>5) { // No pulse for more than 5 seconds
         literPerMinute = 0.0;
         state = false;
       } else {
@@ -62,8 +61,8 @@ public:
   }
 
   void irq(uint32_t io_num, int v) {
-    vTaskDelay(5/portTICK_RATE_MS); // 5ms Filter 200Hz
-    if (gpio_get_level((gpio_num_t)io_num) != v ) // If value changed 
+    vTaskDelay(5/portTICK_RATE_MS); // 5 ms ISR-side settle filter
+    if (gpio_get_level((gpio_num_t)io_num) != v ) // Ignore unstable edge
       return;
     if (io_num==pinHallSensor) {
       if (v!=hallLast) timeHall = millis();
@@ -89,12 +88,12 @@ public:
   uint64_t paddleWheelPulse=0;
   uint64_t magnetHallPluse=0;
   boolean  state ;
-  int pinHallSensor; // pin Hall detector
-  int pinPaddleWheel; // pin IR detector
+  int pinHallSensor; // Hall sensor GPIO
+  int pinPaddleWheel; // IR paddle wheel GPIO
   boolean lastState = false;
-  uint64_t magnetHallPulseOld=0; // Last implusionPerLitre at every seconds
+  uint64_t magnetHallPulseOld=0; // Previous hall counter snapshot
   uint64_t paddleWheelPulseOld=0;
-  // Add Isr
+  // ISR shadow timing and edge tracking
   unsigned long timeHall;
   unsigned long timeIR;
   int hallLast, hallCrt;

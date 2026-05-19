@@ -3,17 +3,17 @@
 
 #include <vector>
 #include <assert.h>
-// File FS SPI Flash File System
+// SPI flash file system support
 //#include "eth_phy/phy.h"
 #include <FS.h>
 #include <SPIFFS.h>
 
-#define filenamelog0 "/running.log" // file log
-#define filenamelog1 "/previous.log" // file log
+#define filenamelog0 "/running.log"   // Active log file
+#define filenamelog1 "/previous.log"  // Rotated backup log file
 
 class HLog {
 private:
-  size_t   nbrLineMax; // size maximun in record
+  size_t   nbrLineMax; // Maximum number of in-memory log lines
   size_t   fileSizeMx;
   bool     cpyOnSPIFS;
   
@@ -61,7 +61,7 @@ public:
       if (logFS.size() > fileSizeMx) {
         //Serial.printf("logfs:%d\n\r", logFS.size());
         logFS.close();
-        // Keep only two files
+        // Keep only two log files (current + previous)
         if (SPIFFS.exists(filenamelog1)) 
           SPIFFS.remove(filenamelog1);
         SPIFFS.rename(filenamelog0, filenamelog1);

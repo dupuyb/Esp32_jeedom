@@ -10,15 +10,15 @@ public:
     pinMode(pinFlameAo, INPUT);
   }
 
-  // Call every seconds anti-bounds
+  // Call once per second with simple debounce/hysteresis filtering.
   bool isChanged(struct tm *time, uint32_t limit) {
     bool changed = false;
-    value = ((value * 2) + analogRead(pinFlameAo)) / 3; // new value 33% old value 66% ADC 12 bits
+    value = ((value * 2) + analogRead(pinFlameAo)) / 3; // 33% new sample, 66% previous value (12-bit ADC)
     if (value < limit - (limit/10)) crtFlame = true; // Flame ON
     if (value > limit + (limit/10)) crtFlame = false; // Flame OFF
     if (crtFlame != state) changed = true;
     state = crtFlame;
-    // record changed only
+    // Recompute duty ratio only when state changes.
     if (changed) {
       if (state) {
         // ---D0____U0----D1____U1--
@@ -41,10 +41,10 @@ public:
     return changed;
   }
 
-  // Final values
-  bool state = false; // Flame status
+  // Exposed state values
+  bool state = false; // Flame state
   uint32_t value;     // IR analog value
-  float flamePerCent = 0; // Percent ON
+  float flamePerCent = 0; // Flame ON duty cycle percentage
 
 private:
   int pinFlameAo;     // Analog input pin

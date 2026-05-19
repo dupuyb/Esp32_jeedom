@@ -5,15 +5,15 @@
 
 const char  JeedomVersion[] PROGMEM = "1.1.1";
 
-// configuration file jeedom
+// Jeedom runtime configuration loaded from SPIFFS
 struct ConfigJeedom {
   char  host[20];
   int   port;
   char  apiKey[40];
-  float fluxReference; // impulsion per liter default 2
-  float openDelay; // Delay of flow is continus
-  float waterM3; // total counter initial value default 0
-  bool  valveOpen; // true is valve is open 
+  float fluxReference; // Pulses per liter
+  float openDelay; // Max continuous flow duration in minutes
+  float waterM3; // Total water counter in m3
+  bool  valveOpen; // true when valve is open
   int   daylightoffset; // daylightOffset_sec
 };
 
@@ -29,7 +29,7 @@ public:
     if (!file) {
        return false;
     }
-    if (config.waterM3==0) { // BUG
+     if (config.waterM3==0) { // Keep existing behavior from legacy implementation
       file.close();
       return false;
     }
@@ -67,11 +67,11 @@ public:
       strlcpy(config.host, rootcfg["host"] | "192.168.2.254", sizeof(config.host));
       config.port = rootcfg["port"] | 80;
       strlcpy(config.apiKey, rootcfg["apiKey"] | "unknown", sizeof(config.apiKey));
-      config.fluxReference = rootcfg["fluxReference"] | 1.0; // default 2 pulse per liter
+      config.fluxReference = rootcfg["fluxReference"] | 1.0; // Default pulses per liter
       config.openDelay = rootcfg["openDelay"] | 15.0; // default 15 minutes
-      config.waterM3 = rootcfg["waterM3"] | 0.000; // Read local counter
-      config.valveOpen = rootcfg["valveOpen"] | true; // valve state
-      config.daylightoffset = rootcfg["daylightOffset"] | 0; // Summer time 3600=Summer 0=Winter
+      config.waterM3 = rootcfg["waterM3"] | 0.000; // Restore local persisted counter
+      config.valveOpen = rootcfg["valveOpen"] | true; // Restore valve state
+      config.daylightoffset = rootcfg["daylightOffset"] | 0; // Summer=3600, winter=0
       // if (error)  saveConfigurationJeedom();
     }
     ccrConfig = getCcrConfig();

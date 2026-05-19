@@ -4,7 +4,7 @@ var first = true;
 
 connection.onopen = function () {
   first = true;
-  // connection.send('connected'); // Get value
+  // connection.send('connected'); // Request initial value
 };
 
 connection.onerror = function (error) {
@@ -24,7 +24,7 @@ connection.onclose = function () {
 function sendValue () {
   first = false;
   var val = document.getElementById('value').value** 2 / 1023;
-  var valstr = '#' + val.toString(16); // Transform to Hexa
+  var valstr = '#' + val.toString(16); // Convert to hex payload
   console.log('sendValue: ' + valstr);
   connection.send(valstr);
 }

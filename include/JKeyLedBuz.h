@@ -22,12 +22,12 @@ public:
     ledcAttachPin(pinGreen, 1);
     ledcAttachPin(pinBlue,  2);
 
-    pinMode(pinBtUp, INPUT_PULLUP); // set button pin as input
-    pinMode(pinBtDn, INPUT_PULLUP); // set button pin as input#ifndef JFlux_h
+    pinMode(pinBtUp, INPUT_PULLUP); // Button input (active low)
+    pinMode(pinBtDn, INPUT_PULLUP); // Button input (active low)
     pinMode(pinValve, OUTPUT);      // Relay Valve
-    digitalWrite(pinValve, HIGH);    // initial state
-    pinMode(pinBuzzer, OUTPUT); // Buzzer
-    pinMode(pinSolidS, OUTPUT); // initial value solidstate
+    digitalWrite(pinValve, HIGH);   // Initial direction state
+    pinMode(pinBuzzer, OUTPUT);     // Buzzer output
+    pinMode(pinSolidS, OUTPUT);     // Solid-state relay output
     digitalWrite(pinSolidS, HIGH);
   }
 
@@ -35,15 +35,15 @@ public:
     valveStat = state;
   } 
 
-  // Set Valve and return true if state changed
+  // Apply valve state and return true when state changed.
   boolean setValve(boolean state) {
     boolean ret = (state != valveStat);
-    // if  stat changing Stop valve
-    if (ret) // Stop valve
-      digitalWrite(pinSolidS, LOW);  // OFF SOLIDSTATERELAY
+    // Stop drive relay while changing valve state.
+    if (ret)
+      digitalWrite(pinSolidS, LOW);   // SSR off during transition
     else
-      digitalWrite(pinSolidS, HIGH);  // OFF SOLIDSTATERELAY
-    // Put other state
+      digitalWrite(pinSolidS, HIGH);  // SSR on in steady state
+    // Update valve direction pin.
     if (state) {
       digitalWrite (pinValve, LOW); // DIR on
     } else {
@@ -58,7 +58,7 @@ public:
     if ( digitalRead(pinBtUp) == 0 ) pressed = 1;
     if ( digitalRead(pinBtDn) == 0 ) pressed = (pressed==1)?(3):(2);
     long tnow = millis();
-    // Key repeat
+    // Key repeat gate
     if ( (tnow - repeatKey) > repeatMs) {
       repeatKey = tnow;
       if (lastKey==pressed) repeated++;
@@ -67,7 +67,7 @@ public:
     } else {
       pressed = 0;
     }
-    // bip
+    // Trigger buzzer feedback
     if (pressed != 0 ) {
       timeBip = tnow;
       buzzer = true;
@@ -76,7 +76,7 @@ public:
        buzzer = false;
     }
     setBuzzer();
-    // Led control
+    // LED animation tick
     if ( (tnow - prevTime) > 111) {
       actionLed();
       prevTime = tnow;
@@ -92,17 +92,17 @@ public:
   private:
 
   void actionLed() {
-    // dimmer variation
+    // Brightness modulation
     if (flip) dimmer++;
     else dimmer--;
-      // Reduce LED Intensity FF become 0F And dimmer from 8 to 4
+      // Reduce LED intensity according to dimmer phase.
     if (dimmer==7 || dimmer==0)  flip = !flip;
     if ( rgb2!=0 && dimmer<2 ) {
       ledcWrite(0, ( rgb2 & 0x0F0000)>>(16+dimmer));
       ledcWrite(1, ( rgb2 & 0x000F00)>>(8+dimmer));
       ledcWrite(2, ( rgb2 & 0x00000F)>>dimmer);
     } else {
-      // Led RGB smoth variation
+      // Smooth RGB variation
       ledcWrite(0, (rgb & 0x0F0000)>>(16+dimmer));
       ledcWrite(1, (rgb & 0x000F00)>>(8+dimmer));
       ledcWrite(2, (rgb & 0x00000F)>>dimmer);
