@@ -20,6 +20,8 @@ struct ConfigJeedom {
 class Jeedom {
 public:
 
+  // Compare current config checksum with last saved checksum.
+  // This is a lightweight change detector (not a cryptographic CRC).
   boolean isCcrChanged(){
      return (myCrc8((uint8_t*)&config, sizeof(config) - 1) != ccrConfig);
   }
@@ -29,6 +31,7 @@ public:
     if (!file) {
        return false;
     }
+    // Preserve legacy rule: avoid writing an all-zero counter snapshot.
      if (config.waterM3==0) { // Keep existing behavior from legacy implementation
       file.close();
       return false;
@@ -84,14 +87,17 @@ public:
   void setup() {
     jeeComErr = 0;
     loadConfigurationJeedom();
+    // Build once, then append id/value for each virtual command push.
     virtualbaseurl = "/core/api/jeeApi.php?apikey=";
     virtualbaseurl += config.apiKey;
     virtualbaseurl += "&type=event&plugin=virtual&id=";
   }
 
   int sendVirtual(int id, float val) {
+    // String formatting is normalized to 3 decimals for Jeedom virtual commands.
     char temp[20]; // force for m3 in liter
     snprintf(temp, 20, "%.3f", val);
+    // Send one Jeedom virtual update through HTTP GET.
     String url = virtualbaseurl + String(id);
     url += url + "&value="; url += String(temp);
     http.begin(config.host,config.port, url);

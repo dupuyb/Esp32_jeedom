@@ -1,18 +1,22 @@
 #ifndef JFlame_h
 #define JFlame_h
 
+// Boiler flame monitor based on analog IR sensor input.
+// State transitions are filtered with hysteresis and used to estimate ON duty cycle.
 class JFlame {
 
 public:
 
   JFlame(int pinA) {
     pinFlameAo = pinA;
+    // Analog channel is sampled in software filter (no interrupt required).
     pinMode(pinFlameAo, INPUT);
   }
 
   // Call once per second with simple debounce/hysteresis filtering.
   bool isChanged(struct tm *time, uint32_t limit) {
     bool changed = false;
+    // Low-pass filter to reduce noise before threshold comparison.
     value = ((value * 2) + analogRead(pinFlameAo)) / 3; // 33% new sample, 66% previous value (12-bit ADC)
     if (value < limit - (limit/10)) crtFlame = true; // Flame ON
     if (value > limit + (limit/10)) crtFlame = false; // Flame OFF
@@ -49,6 +53,7 @@ public:
 private:
   int pinFlameAo;     // Analog input pin
   bool crtFlame = false;
+  // Edge timestamps used to estimate ON duty ratio.
   unsigned long upTime[2];
   unsigned long dnTime[2];
 };

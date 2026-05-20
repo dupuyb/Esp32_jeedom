@@ -4,6 +4,9 @@
 #define ANTIBOUNCEH 1000 // Hall debounce in ms (sensor period roughly 1.6s low + 7s high per liter)
 #define ANTIBOUNCEI 20   // IR debounce in ms (up to ~50 pulses/s)
 
+// Flow helper:
+// - Hall input tracks totalized volume (stable long period signal)
+// - IR paddle input tracks instantaneous flow
 class JFlux {
 public:
 
@@ -28,6 +31,7 @@ public:
   }
 
   void setup(float totWaterM3, float implusionPerLitre) {
+    // Restore pulse counters from persisted m3 value.
     magnetHallPluse = (uint64_t)(totWaterM3 * 1000.0 * (float)implusionPerLitre); // Last persisted counter from Jeedom config
     magnetHallPulseOld = magnetHallPluse;
   }
@@ -61,6 +65,7 @@ public:
   }
 
   void irq(uint32_t io_num, int v) {
+    // This method is called by a worker task fed by ISR queue, not directly from hardware ISR.
     vTaskDelay(5/portTICK_RATE_MS); // 5 ms ISR-side settle filter
     if (gpio_get_level((gpio_num_t)io_num) != v ) // Ignore unstable edge
       return;
@@ -78,9 +83,11 @@ public:
 
   boolean getState() { return state; }
  
+  // Totalized pulse count from hall sensor (persistent water counter source).
   uint64_t getMagnetHallPluse() { return magnetHallPluse;}
   void setMagnetHallPluse(uint64_t v) { magnetHallPluse = v;}
 
+  // Instant flow pulse count from paddle wheel.
   uint64_t getPaddleWheelPulse() { return paddleWheelPulse;}
 
  private :

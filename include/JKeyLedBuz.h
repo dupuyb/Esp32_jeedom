@@ -1,6 +1,7 @@
 #ifndef JKeyLedBuz_h
 #define JKeyLedBuz_h
 
+// Handles local controls: 2 buttons, RGB status LED, buzzer and valve relays.
 class JKeyLedBuz {
 
 public:
@@ -32,6 +33,7 @@ public:
   }
 
   void initValve(boolean state){
+    // State mirrors software logic (true = closed request, false = open request).
     valveStat = state;
   } 
 
@@ -55,6 +57,7 @@ public:
 
   uint8_t getKey(uint16_t repeatMs){
     uint8_t pressed = 0;
+    // Buttons are wired active-low.
     if ( digitalRead(pinBtUp) == 0 ) pressed = 1;
     if ( digitalRead(pinBtDn) == 0 ) pressed = (pressed==1)?(3):(2);
     long tnow = millis();
@@ -97,6 +100,7 @@ public:
     else dimmer--;
       // Reduce LED intensity according to dimmer phase.
     if (dimmer==7 || dimmer==0)  flip = !flip;
+    // rgb2 is a transient overlay color used for alerts/highlights.
     if ( rgb2!=0 && dimmer<2 ) {
       ledcWrite(0, ( rgb2 & 0x0F0000)>>(16+dimmer));
       ledcWrite(1, ( rgb2 & 0x000F00)>>(8+dimmer));

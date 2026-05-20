@@ -15,6 +15,11 @@ HLog hlog(100);
 // ESP reset reason helper
 #include <rom/rtc.h>
 
+// Runtime overview:
+// - Main loop runs fast tasks continuously (web stack, flow processing, key scan)
+// - A 1-second section handles supervision, Jeedom sync and display refresh
+// - A dedicated watchdog task forces recovery on long network stalls
+
 // Log helper, max payload 120 chars
 #define LOG(format, ...) { \
   char temp[120];\
@@ -31,6 +36,7 @@ int cntOled = 0;
 #define i2cADD  0x3c
 U8G2_SSD1306_128X32_UNIVISION_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE, /* clock=*/ pinSCL, /* data=*/ pinSDA);   // Explicit ESP32 pin mapping for HW I2C
 
+// Short OLED helper macros used to keep render callsites compact.
 #define OLEDC() u8g2.clearBuffer(); 
 #define OLEDS() u8g2.sendBuffer();
 #define OLEDF(x,y,format, ...) { \
@@ -157,6 +163,7 @@ int onChanged = 2;
 #define SEND2JEEDOM(na,wc,rj,id,va) 
 #else
 #define SEND2JEEDOM(na,wc,rj,id,va) { \
+  /* Send only when WiFi and previous HTTP status are healthy. */ \
   if (wc == WL_CONNECTED && rj == HTTP_CODE_OK) { \
     rj = jeedom.sendVirtual(id, va); \
     if (rj != HTTP_CODE_OK && Serial.availableForWrite() ) { \
@@ -396,6 +403,7 @@ void loop() {
   }
   // Alive section, executed every second
   if ( millis() - previousMillis > 1000L) {
+    // This block is the control heartbeat (1 Hz): sensors, network, outputs, persistence.
     previousMillis = millis();
     getLocalTime(&timeinfo);
     digitalWrite(EspLedBlue, !digitalRead(EspLedBlue));
@@ -408,6 +416,7 @@ void loop() {
        // LOG("%s -WiFi Lost:%s wifiLost:%d sec. jeeErrCnt:%d localIP:%s", getDate().c_str(), frame.wifiStatus(wifistat), wifiLost, jeedom.getErrorCounter(), WiFi.localIP().toString().c_str() );
       }
       if (wifiLost == 50) {
+       // Force a clean disconnect before reconnect trial to reset WiFi state machine.
        // LOG("%s -WiFi disconnect OK after 50s (%s).",getDate().c_str(), frame.wifiStatus(wifistat));
         saveConfigJeedom = true;
         WiFi.disconnect();

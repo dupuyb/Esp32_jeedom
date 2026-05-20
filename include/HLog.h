@@ -11,11 +11,13 @@
 #define filenamelog0 "/running.log"   // Active log file
 #define filenamelog1 "/previous.log"  // Rotated backup log file
 
+// Lightweight logger with RAM buffering and periodic SPIFFS persistence.
+// When the active file exceeds fileSizeMx, logs are rotated to filenamelog1.
 class HLog {
 private:
   size_t   nbrLineMax; // Maximum number of in-memory log lines
   size_t   fileSizeMx;
-  bool     cpyOnSPIFS;
+  bool     cpyOnSPIFS; // Reserved compatibility flag (kept for existing constructor API)
   
 protected:
     std::vector<String> record;
@@ -30,6 +32,7 @@ public:
   } 
 
   void append (String s) {
+    // Buffer first, write later to reduce flash writes.
     record.push_back(s);
     if (record.size()>nbrLineMax) 
         flush();
@@ -74,6 +77,7 @@ public:
         Serial.println(F("Log file open failed"));
         return false;
     }
+    // Persist buffered lines in insertion order.
     for (auto &i : record) {  
       logFS.println(i);
       logFS.flush();
