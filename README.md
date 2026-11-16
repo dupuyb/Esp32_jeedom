@@ -71,10 +71,13 @@ Important:
 
 ## Runtime Endpoints
 
-- /eau: water/boiler supervision page (GET/POST)
-- /tail: in-memory latest logs
-- /running.log and /previous.log: persisted logs in SPIFFS
-- FrameWeb default endpoints are also available (/upload, /update, /explorer, ...)
+- `/eau`: water/boiler supervision page and parameter interface (GET/POST)
+- `/tail`: current in-memory log buffer
+- `/running.log` and `/previous.log`: persisted logs in SPIFFS, when present
+- FrameWeb also provides management endpoints, including `/upload`, `/update` and `/explorer`.
+
+See the [developer API reference](Doc/README.md) for request parameters, examples,
+Jeedom integration, internal C++ APIs and important security limitations.
 
 ## Dependencies
 
